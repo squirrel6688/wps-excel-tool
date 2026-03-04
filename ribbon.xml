@@ -1,0 +1,24 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnAddinLoad">
+    <ribbon startFromScratch="false">
+        <tabs>
+            <tab id="wpsAddinTab" label="算速通">
+
+                <group id="groupGtj" label="对gtj">
+                    <button id="btnCleanGtj" label="去底色+清空格转数值" getImage="GetImage" onAction="OnAction" size="large" />
+                    <separator id="sep1" /> 
+                    <button id="btnCopyID" label="复制拼接ID" getImage="GetImage" onAction="OnAction" size="large" />
+                </group>
+
+                <group id="groupOthers" label="处理别人的表">
+                    <button id="btnCleanFormat" label="去底色+11号字" getImage="GetImage" onAction="OnAction" size="large" />
+                </group>
+
+                <group id="groupCustom" label="个性工具栏">
+                    <button id="btnToggleZero" label="显示/隐藏0值" getImage="GetImage" onAction="OnAction" size="large" />
+                    <button id="btnCustom1" label="我的预留功能" getImage="GetImage" onAction="OnAction" size="large" />
+                </group>
+
+            </tab>
+        </tabs>
+    </ribbon>
+</customUI>
