@@ -570,7 +570,7 @@
 
         function LoadPublishAddons() {
             var addonList = document.getElementById("addonList");
-            var curList = [{"name":"test123","addonType":"wps","online":"true","multiUser":"false","url":"http://www.test.a/"},{"name":"量效助手","addonType":"et","online":"true","multiUser":"false","url":"https://squirrel6688.github.io/wps-excel-tool/"}];
+            var curList = [{"name":"量效助手","addonType":"et","online":"true","multiUser":"false","url":"https://squirrel6688.github.io/wps-excel-tool/"}];
             curList.forEach(function (element) {
                 var param = JSON.stringify(element).replace("\"", "\'");
                 UpdateElement(element, 'enable')
