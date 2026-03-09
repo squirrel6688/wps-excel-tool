@@ -1,7 +1,7 @@
 <customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnAddinLoad">
     <ribbon startFromScratch="false">
         <tabs>
-            <tab id="wpsAddinTab" label="算速通">
+            <tab id="wpsAddinTab" label="量效助手">
 
                 <group id="groupGtj" label="对gtj">
                     <button id="btnCleanGtj" label="去底色+清空格转数值" getImage="GetImage" onAction="OnAction" size="large" />
