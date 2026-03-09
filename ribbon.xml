@@ -11,11 +11,15 @@
 
                 <group id="groupOthers" label="处理别人的表">
                     <button id="btnCleanFormat" label="去底色+11号字" getImage="GetImage" onAction="OnAction" size="large" />
+                    <button id="btnFormatTool" label="格式清洗弹窗" getImage="GetImage" onAction="OnAction" size="large" /> 
                 </group>
 
                 <group id="groupCustom" label="个性工具栏">
+                <separator id="sep1" /> 
                     <button id="btnToggleZero" label="显示/隐藏0值" getImage="GetImage" onAction="OnAction" size="large" />
                     <button id="btnCalcFormula" label="录入计算式" getImage="GetImage" onAction="OnAction" size="large" />
+                    <button id="btnTraceRef" label="公式追踪" getImage="GetImage" size="large" onAction="OnAction" getVisible="OnGetVisible" />
+                    <separator id="sep1" /> 
                     <button id="btnCustom1" label="我的预留功能" getImage="GetImage" onAction="OnAction" size="large" />
                 </group>
 

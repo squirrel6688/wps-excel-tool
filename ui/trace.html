@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>公式追踪</title>
+    <style>
+        /* 极致紧凑排版 */
+        body { font-family: "Microsoft YaHei"; margin: 0; padding: 6px; background-color: #f5f5f5; color: #333; font-size: 12px; }
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; background: white; padding: 4px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .radio-group { display: flex; align-items: center; }
+        .radio-group label { cursor: pointer; margin-right: 6px; font-weight: bold; font-size: 11px;}
+        .radio-group input { margin: 0 2px 0 0; vertical-align: middle; }
+        
+        .btn-group { display: flex; gap: 4px; }
+        .btn { padding: 3px 8px; border: none; border-radius: 3px; cursor: pointer; color: white; font-weight: bold; font-size: 11px; }
+        .btn-refresh { background-color: #00b0f0; }
+        .btn-refresh:hover { background-color: #008ebd; }
+        .btn-select-all { background-color: #28a745; }
+        .btn-return { background-color: #e53935; } /* 红色的返回按钮，非常醒目 */
+        .btn-return:hover { background-color: #c62828; }
+
+        .table-container { background: white; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1); max-height: 380px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background-color: #eaeaea; padding: 4px 6px; font-size: 11px; position: sticky; top: 0; }
+        td { padding: 4px 6px; border-bottom: 1px solid #eee; font-size: 11px; }
+        tr:hover td { background-color: #e3f2fd; }
+        
+        .cell-link { color: #007bff; cursor: pointer; font-weight: bold; text-decoration: underline; }
+        .cross-tag { color: #ff9800; font-size: 10px; margin-left: 2px; }
+        .status { margin-top: 6px; font-size: 10px; color: #888; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <div class="radio-group">
+            <label><input type="radio" name="traceType" id="typePrec" checked onchange="refreshData()"> 来源</label>
+            <label><input type="radio" name="traceType" id="typeDep" onchange="refreshData()"> 去向</label>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-return" onclick="returnToOrigin()" title="返回到最初扫描的母单元格">返回原点</button>
+            <button class="btn btn-refresh" onclick="refreshData()">刷新</button>
+            <button class="btn btn-select-all" onclick="selectAll()">全选</button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th width="40%">坐标</th>
+                    <th width="60%">数值/公式</th>
+                </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+        </table>
+    </div>
+
+    <div class="status" id="statusMsg">请选中单元格点击刷新。</div>
+
+    <script>
+        let foundRange = null; 
+        
+        // 🚨 记忆系统：用来保存“回城”坐标
+        let originSheetName = "";
+        let originAddress = "";
+
+        window.onload = function() {
+            refreshData(); 
+        }
+
+        // 核心雷达扫描逻辑 (保持上一版的超强跨表盲搜能力不变)
+        function refreshData() {
+            const app = wps.Application;
+            const activeCell = app.ActiveCell;
+            const tbody = document.getElementById("resultBody");
+            const statusMsg = document.getElementById("statusMsg");
+            
+            tbody.innerHTML = ""; 
+            foundRange = null;
+
+            if (!activeCell) {
+                statusMsg.innerText = "未选中任何单元格！";
+                return;
+            }
+
+            let currentSheetName = activeCell.Parent.Name;
+            
+            // 🚨 记录当前扫描的母单元格，充当“回城点”
+            originSheetName = currentSheetName;
+            originAddress = activeCell.Address(false, false);
+
+            let safeSheetName = /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(currentSheetName) ? currentSheetName : "'" + currentSheetName + "'";
+
+            let isPrecedent = document.getElementById("typePrec").checked;
+            let htmlStr = "";
+            let count = 0;
+            let addedAddresses = new Set();
+
+            try {
+                if (isPrecedent) {
+                    foundRange = activeCell.DirectPrecedents;
+                } else {
+                    foundRange = activeCell.DirectDependents;
+                }
+            } catch(e) {
+                foundRange = null; 
+            }
+
+            // 1. 本表原生关联
+            if (foundRange) {
+                for (let i = 1; i <= foundRange.Areas.Count; i++) {
+                    let area = foundRange.Areas.Item(i);
+                    for (let c = 1; c <= area.Count; c++) {
+                        let cell = area.Item(c);
+                        let cellAddr = cell.Address(false, false);
+                        let address = safeSheetName + "!" + cellAddr;
+                        let val = cell.Text || cell.Value2 || "";
+
+                        addedAddresses.add(currentSheetName + "!" + cellAddr.replace(/\$/g, ''));
+                        htmlStr += renderRow(address, val, "");
+                        count++;
+                    }
+                }
+            }
+
+            // 2. 跨表雷达：引用来源
+            if (isPrecedent && activeCell.HasFormula) {
+                let formula = activeCell.Formula;
+                let regex = /(?:'([^']+)'!|([a-zA-Z0-9_\u4e00-\u9fa5]+)!)\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?/g;
+                let matches = formula.match(regex);
+                if (matches) {
+                    let uniqueMatches = [...new Set(matches)]; 
+                    for (let m of uniqueMatches) {
+                        try {
+                            let parts = m.split('!');
+                            let refSh = parts[0].replace(/'/g, '');
+                            if (refSh === currentSheetName) continue;
+                            let refCellAddr = parts[1].replace(/\$/g, '');
+                            if (!addedAddresses.has(refSh + "!" + refCellAddr)) {
+                                addedAddresses.add(refSh + "!" + refCellAddr);
+                                let refCell = app.Range(m); 
+                                let val = refCell.Text || refCell.Value2 || "";
+                                htmlStr += renderRow(m, val, "[跨表]");
+                                count++;
+                            }
+                        } catch(err) {}
+                    }
+                }
+            }
+
+            // 3. 跨表雷达：被引用盲搜
+            if (!isPrecedent) {
+                let escapedSh = currentSheetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                let regexExtract = new RegExp("('?" + escapedSh + "'?!\\$?[A-Za-z]+\\$?[0-9]+(?::\\$?[A-Za-z]+\\$?[0-9]+)?)", "gi");
+
+                for (let s = 1; s <= app.Worksheets.Count; s++) {
+                    let sh = app.Worksheets.Item(s);
+                    if (sh.Name === currentSheetName) continue; 
+                    try {
+                        let formulaCells = sh.UsedRange.SpecialCells(-4123);
+                        if (!formulaCells) continue;
+                        let sNameSafe = /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(sh.Name) ? sh.Name : "'" + sh.Name + "'";
+
+                        for (let i = 1; i <= formulaCells.Areas.Count; i++) {
+                            let area = formulaCells.Areas.Item(i);
+                            for (let c = 1; c <= area.Count; c++) {
+                                let cell = area.Item(c);
+                                let f = cell.Formula;
+                                if (f && typeof f === 'string') {
+                                    let matches = f.match(regexExtract);
+                                    if (matches) {
+                                        let isDependent = false;
+                                        for (let m of matches) {
+                                            try {
+                                                if (app.Intersect(activeCell, app.Range(m)) !== null) {
+                                                    isDependent = true; break;
+                                                }
+                                            } catch(err) {}
+                                        }
+                                        if (isDependent) {
+                                            let cellAddr = cell.Address(false, false);
+                                            let addr = sNameSafe + "!" + cellAddr;
+                                            if (!addedAddresses.has(sh.Name + "!" + cellAddr.replace(/\$/g, ''))) {
+                                                addedAddresses.add(sh.Name + "!" + cellAddr.replace(/\$/g, ''));
+                                                htmlStr += renderRow(addr, cell.Text || cell.Value2 || "", "[跨表]");
+                                                count++;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            tbody.innerHTML = htmlStr;
+            statusMsg.innerText = count === 0 ? "未找到关联单元格！" : `共发现 ${count} 个目标。`;
+        }
+
+        function renderRow(address, val, tag) {
+            let tagHtml = tag ? `<span class="cross-tag">${tag}</span>` : "";
+            return `<tr><td><span class="cell-link" onclick="jumpToCell(this.innerText)">${address}</span></td><td>${val} ${tagHtml}</td></tr>`;
+        }
+
+        function jumpToCell(address) {
+            try {
+                const app = wps.Application;
+                let parts = address.split("!");
+                if (parts.length === 2) {
+                    let sheetName = parts[0].replace(/'/g, '');
+                    app.Worksheets.Item(sheetName).Activate();
+                    app.ActiveSheet.Range(parts[1]).Select();
+                } else {
+                    app.Range(address).Select();
+                }
+            } catch(e) { }
+        }
+
+        // 🚨 一键回城功能：跳回扫描时的母单元格
+        function returnToOrigin() {
+            if (!originSheetName || !originAddress) {
+                alert("没有记录到母单元格，请先执行一次刷新扫描！");
+                return;
+            }
+            try {
+                const app = wps.Application;
+                app.Worksheets.Item(originSheetName).Activate();
+                app.ActiveSheet.Range(originAddress).Select();
+            } catch(e) {
+                alert("回城失败！可能是该工作表已被删除。");
+            }
+        }
+
+        function selectAll() {
+            if (foundRange) {
+                try { foundRange.Select(); } catch(e) {}
+            } else {
+                alert("当前页没有可全选的内容(跨表需点击跳转)");
+            }
+        }
+    </script>
+</body>
+</html>

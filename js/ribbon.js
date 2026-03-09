@@ -18,9 +18,13 @@ function OnAction(control) {
             DoToggleZero(); // 显示/隐藏0值
             break;
         case "btnCalcFormula": 
-            // ⚠️ 极其重要提醒：上面这个 "btnCalcFormula" 必须和你 ribbon.xml 里面
-            // “录入计算公式”那个按钮的 id 完全一模一样！如果不对应，点按钮会没反应！
             DoShowCalcDialog(); // 唤起录入计算弹窗
+            break;
+        case "btnTraceRef":     
+            DoShowTraceDialog(); // 公式追踪按钮指令
+            break;
+        case "btnFormatTool":   // 👈 新增：唤起格式清洗弹窗
+            DoShowFormatDialog();
             break;
         case "btnCustom1":
             alert("预留按钮，随时可以写新代码接上来！");
@@ -29,34 +33,56 @@ function OnAction(control) {
 }
 
 // ==========================================
+// 功能：弹出【格式清洗】对话框 (新增)
+// ==========================================
+function DoShowFormatDialog() {
+    let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
+    let htmlUrl = basePath + "/ui/format.html";
+    // ⚠️ 宽度 350 不变，高度从 240 压缩到 180！
+    wps.ShowDialog(htmlUrl, "高级格式清洗", 350, 180, false);
+}
+
+// ==========================================
+// 功能：弹出【公式追踪】对话框
+// ==========================================
+function DoShowTraceDialog() {
+    let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
+    let htmlUrl = basePath + "/ui/trace.html";
+    wps.ShowDialog(htmlUrl, "公式追踪神器", 380, 480, false);
+}
+
+// ==========================================
 // 功能：弹出【录入计算公式】对话框
 // ==========================================
 function DoShowCalcDialog() {
-    // 动态获取当前插件的路径 (兼容本地测试和线上环境)
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/calc.html";
-    
-    // 召唤弹窗魔法：wps.ShowDialog(网页地址, 窗口标题, 宽度, 高度, 是否强制拦截底层操作)
-    // 宽度520，高度120，false代表弹窗打开时，依然可以点背后的Excel格子
     wps.ShowDialog(htmlUrl, "录入计算公式", 520, 200, false);
 }
 
 // ==========================================
-// 功能：极速去底色 + 清空格转数值 (大数据秒级处理版)
+// 功能：极速去底色 + 清空格转数值 (全自动智能判断版)
 // ==========================================
 function DoCleanDataAndFormat() {
     const app = wps.Application;
-    const sel = app.Selection;
-    if (!sel || sel.Count === 0) return;
+    const sheet = app.ActiveSheet;
+    if (!sheet) return;
 
-    // 1. 【极速去底色】
-    sel.Interior.ColorIndex = 0; 
+    let targetRange;
+    
+    if (app.Selection && app.Selection.Count > 1) {
+        targetRange = app.Selection;
+    } else {
+        targetRange = sheet.UsedRange; 
+    }
 
-    // 2. 遍历选区内的每一个连续区域
-    for (let i = 1; i <= sel.Areas.Count; i++) {
-        let area = sel.Areas.Item(i);
+    if (!targetRange) return;
 
-        // 如果只选了一个格子
+    targetRange.Interior.ColorIndex = 0; 
+
+    for (let i = 1; i <= targetRange.Areas.Count; i++) {
+        let area = targetRange.Areas.Item(i);
+
         if (area.Count === 1) {
             let val = area.Value2;
             if (typeof val === 'string') {
@@ -66,21 +92,19 @@ function DoCleanDataAndFormat() {
             continue;
         }
 
-        // 3. 【核心提速】：吸入内存二维数组
         let dataArr = area.Value2; 
+        if (!dataArr) continue; 
 
-        // 4. 内存中极速清洗
         for (let r = 0; r < dataArr.length; r++) {
             for (let c = 0; c < dataArr[r].length; c++) {
                 let val = dataArr[r][c];
+                
                 if (typeof val === 'string') {
                     let cleanVal = val.replace(/\s+/g, ''); 
                     dataArr[r][c] = (!isNaN(cleanVal) && cleanVal !== '') ? Number(cleanVal) : cleanVal;
                 }
             }
         }
-
-        // 5. 【瞬间复原】：拍回表格
         area.Value2 = dataArr;
     }
 }
@@ -164,12 +188,9 @@ function GetImage(control) {
         case "btnCopyID": return "images/copy_id.png";
         case "btnCleanFormat": return "images/clean_style.png";
         case "btnToggleZero": return "images/zero.png";
-        
-        // 👇 这里就是给你新增的“录入计算公式”按钮派发图标的代码！
-        // ⚠️ 确保 "btnCalcFormula" 和你在 ribbon.xml 里的 id 一模一样
-        // ⚠️ 确保 "images/calc.png" 和你刚才放进文件夹里的图片名字一模一样
         case "btnCalcFormula": return "images/calc.png"; 
-        
+        case "btnTraceRef": return "images/trace.png"; 
+        case "btnFormatTool": return "images/FormatTool_style.png"; // 👈 新增：给格式清洗发图标 (复用了之前的图标)
         case "btnCustom1": return "images/custom.png";
     }
     return "";
