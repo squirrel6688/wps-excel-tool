@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>录入计算公式</title>
+    <style>
+        /* 界面排版美化 */
+        body { 
+            font-family: "Microsoft YaHei", sans-serif; 
+            margin: 0; 
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh; 
+        }
+        .header { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            background: white; 
+            padding: 5px 10px; 
+            border-bottom: 1px dashed #ccc;
+        }
+        select { padding: 2px; font-size: 12px; }
+        .checkbox-label { display: flex; align-items: center; cursor: pointer; font-size: 12px;}
+        a { color: blue; text-decoration: none; cursor: pointer; font-size: 12px;}
+        a:hover { text-decoration: underline; }
+        
+        /* 颜色选择器美化 */
+        #bracketColor {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        /* 输入框区域样式 */
+        .input-area {
+            flex: 1; 
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        #formulaInput {
+            width: 100%;
+            height: 100%;
+            font-size: 20px; 
+            font-family: Consolas, "Microsoft YaHei", monospace; 
+            border: 1px solid #ccc;
+            padding: 8px;
+            resize: none; 
+            outline: none;
+            box-sizing: border-box;
+        }
+        #formulaInput:focus {
+            border-color: #417ff9; 
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <label>备注栏</label>
+        <select id="memoKey">
+            <option value="space">空格键</option>
+            <option value="enter">回车键</option>
+        </select>
+        
+        <label>录入</label>
+        <select id="inputKey">
+            <option value="enter">ENTER</option>
+            <option value="ctrl_enter">CTRL+ENTER</option>
+        </select>
+        
+        <input type="color" id="bracketColor" value="#00b0f0" title="点击更换[]内文字的颜色">
+        
+        <label class="checkbox-label">
+            <input type="checkbox" id="alwaysOnTop" checked> 置顶
+        </label>
+        
+        <a href="#" onclick="alert('老板，教程页面还在肝！')">教程</a>
+    </div>
+
+    <div class="input-area">
+        <textarea id="formulaInput" placeholder="在这里输入公式..."></textarea>
+    </div>
+
+    <script>
+        const formulaInput = document.getElementById("formulaInput");
+        const memoKeySelect = document.getElementById("memoKey");
+        const inputKeySelect = document.getElementById("inputKey");
+        const colorPicker = document.getElementById("bracketColor");
+
+        window.onload = function() {
+            formulaInput.focus();
+        }
+
+        formulaInput.addEventListener("keydown", function(event) {
+            // 功能 1：插入中括号 []
+            if (event.key === " " && memoKeySelect.value === "space") {
+                event.preventDefault(); 
+                insertBrackets();
+            } else if (event.key === "Enter" && memoKeySelect.value === "enter" && !event.ctrlKey) {
+                event.preventDefault(); 
+                insertBrackets();
+            }
+
+            // 功能 2：触发录入
+            let isEnter = (event.key === "Enter" && !event.ctrlKey && inputKeySelect.value === "enter");
+            let isCtrlEnter = (event.key === "Enter" && event.ctrlKey && inputKeySelect.value === "ctrl_enter");
+
+            if (isEnter || isCtrlEnter) {
+                event.preventDefault(); 
+                writeToCell(formulaInput.value);
+            }
+        });
+
+        // 插入中括号并居中光标
+        function insertBrackets() {
+            const start = formulaInput.selectionStart;
+            const text = formulaInput.value;
+            formulaInput.value = text.substring(0, start) + "[]" + text.substring(start);
+            formulaInput.selectionStart = formulaInput.selectionEnd = start + 1;
+        }
+
+        // HTML的颜色(如 #ff0000) 转换成 WPS 底层认识的整数颜色代码
+        function hexToWpsColor(hex) {
+            let r = parseInt(hex.substring(1, 3), 16);
+            let g = parseInt(hex.substring(3, 5), 16);
+            let b = parseInt(hex.substring(5, 7), 16);
+            return b * 65536 + g * 256 + r;
+        }
+
+        // 写入单元格，并给括号里的字上色
+        function writeToCell(valueToInsert) {
+            try {
+                const app = wps.Application;
+                if (app && app.Selection) {
+                    const sel = app.Selection;
+                    
+                    // 1. 先把全部文本原封不动写进去
+                    sel.Value2 = valueToInsert;
+                    
+                    // 2. 拿到用户刚才在面板选的颜色，并转换成WPS密码
+                    const colorInt = hexToWpsColor(colorPicker.value);
+
+                    // 3. 施展局部变色魔法！
+                    // 遍历所有选中的格子（防止用户选了一大片）
+                    for (let i = 1; i <= sel.Count; i++) {
+                        let cell = sel.Item(i);
+                        let text = cell.Text; 
+                        
+                        if (typeof text === 'string') {
+                            // 用正则雷达，全网搜捕带有 [] 的文本
+                            let regex = /\[(.*?)\]/g;
+                            let match;
+                            while ((match = regex.exec(text)) !== null) {
+                                // 精准计算里面的文字是从第几个字开始，总共多长
+                                let wordStart = match.index + 2; // +1是因为WPS数数从1开始，再+1跳过 '['
+                                let wordLen = match[1].length;   // 里面文字的长度
+                                
+                                // 命中目标！指挥 WPS 只对这几个字喷上颜色！
+                                if (wordLen > 0) {
+                                    cell.Characters(wordStart, wordLen).Font.Color = colorInt;
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. 清空输入框，弹药上膛准备下一发
+                    formulaInput.value = ""; 
+                }
+            } catch(e) {
+                alert("写入失败，没连接上表格！错误：" + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

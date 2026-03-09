@@ -15,6 +15,7 @@
 
                 <group id="groupCustom" label="个性工具栏">
                     <button id="btnToggleZero" label="显示/隐藏0值" getImage="GetImage" onAction="OnAction" size="large" />
+                    <button id="btnCalcFormula" label="录入计算式" getImage="GetImage" onAction="OnAction" size="large" />
                     <button id="btnCustom1" label="我的预留功能" getImage="GetImage" onAction="OnAction" size="large" />
                 </group>
 
