@@ -15,12 +15,12 @@
                 </group>
 
                 <group id="groupCustom" label="个性工具栏">
-                <separator id="sep1" /> 
+                    <separator id="sep1" />
                     <button id="btnToggleZero" label="显示/隐藏0值" getImage="GetImage" onAction="OnAction" size="large" />
                     <button id="btnCalcFormula" label="录入计算式" getImage="GetImage" onAction="OnAction" size="large" />
-                    <button id="btnTraceRef" label="公式追踪" getImage="GetImage" size="large" onAction="OnAction" getVisible="OnGetVisible" />
-                    <separator id="sep1" /> 
-                    <button id="btnCustom1" label="我的预留功能" getImage="GetImage" onAction="OnAction" size="large" />
+                    <button id="btnTraceRef" label="公式追踪" getImage="GetImage" onAction="OnAction" size="large" />
+                    <separator id="sep1" />
+                    <button id="btnPivotSummary" label="数据透析表" getImage="GetImage" onAction="OnAction" size="large" />
                 </group>
 
             </tab>
