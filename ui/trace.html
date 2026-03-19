@@ -3,306 +3,389 @@
 
 <head>
     <meta charset="utf-8">
-    <title>录入计算公式</title>
+    <title>公式追踪</title>
     <style>
+        /* 🚨 侧边栏专属：打破一切宽度限制，允许极限压缩 */
         body {
             font-family: "Microsoft YaHei";
             margin: 0;
-            padding: 10px;
+            padding: 6px;
             background-color: #f5f5f5;
             color: #333;
             font-size: 12px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            min-width: 50px;
         }
 
-        .toolbar {
+        .controls {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            gap: 6px;
             background: white;
-            padding: 8px 10px;
+            padding: 6px;
             border-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 8px;
-            position: relative;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 6px;
+            flex-shrink: 0;
+            min-width: 0;
         }
 
-        select {
-            padding: 2px 4px;
-            font-size: 12px;
-            outline: none;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-        }
-
-        label {
+        .radio-group {
             display: flex;
             align-items: center;
+            justify-content: space-around;
+            width: 100%;
+            flex-wrap: wrap;
             gap: 4px;
+        }
+
+        .radio-group label {
             cursor: pointer;
+            font-weight: bold;
+            font-size: 11px;
+            white-space: nowrap;
         }
 
-        input[type="checkbox"] {
-            margin: 0;
+        .radio-group input {
+            margin: 0 2px 0 0;
+            vertical-align: middle;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 4px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 35px;
+            padding: 5px 0;
+            border: none;
+            border-radius: 3px;
             cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 11px;
+            text-align: center;
         }
 
-        .link {
-            color: #007bff;
-            text-decoration: none;
-            cursor: pointer;
+        .btn-refresh {
+            background-color: #00b0f0;
         }
 
-        .link:hover {
-            text-decoration: underline;
+        .btn-refresh:hover {
+            background-color: #008ebd;
         }
 
-        .color-picker-wrapper {
-            position: relative;
-            display: inline-block;
+        .btn-select-all {
+            background-color: #28a745;
         }
 
-        .color-block {
-            width: 16px;
-            height: 16px;
-            border: 1px solid #999;
-            cursor: pointer;
-            border-radius: 2px;
-            box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.2);
+        .btn-return {
+            background-color: #e53935;
         }
 
-        .color-block:hover {
-            border-color: #000;
+        .btn-return:hover {
+            background-color: #c62828;
         }
 
-        .palette-popup {
-            display: none;
-            position: absolute;
-            top: 24px;
-            left: 0;
-            background: white;
-            border: 1px solid #ccc;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-            padding: 10px;
-            z-index: 100;
-            width: 170px;
-            border-radius: 4px;
-            /* 🚨 核心魔法：禁止鼠标拖拽选中文字，彻底消除网页廉价感！ */
-            user-select: none;
-            -webkit-user-select: none;
-        }
-
-        .palette-title {
+        .target-info {
             font-size: 11px;
             color: #666;
             margin-bottom: 6px;
+            padding-left: 2px;
+            flex-shrink: 0;
+            word-break: break-all;
         }
 
-        .color-grid {
-            display: grid;
-            grid-template-columns: repeat(10, 14px);
-            gap: 2px;
-            justify-content: space-between;
-            margin-bottom: 8px;
+        .target-id {
+            font-weight: bold;
+            color: #e53935;
+            font-size: 12px;
         }
 
-        .color-cell {
-            width: 14px;
-            height: 14px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            box-sizing: border-box;
-        }
-
-        .color-cell:hover {
-            border: 1px solid #000;
-            transform: scale(1.1);
-            transition: all 0.1s;
-        }
-
-        .action-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 6px;
-            font-size: 11px;
-            color: #333;
-            border-radius: 3px;
-            cursor: pointer;
-            border: 1px solid transparent;
-        }
-
-        .action-btn:hover {
-            background: #f0f0f0;
-            border: 1px solid #ccc;
-        }
-
-        textarea {
-            width: 100%;
-            height: 100px;
-            box-sizing: border-box;
-            padding: 8px;
-            border: 1px solid #ccc;
+        .table-container {
+            background: white;
             border-radius: 4px;
-            font-size: 14px;
-            font-family: Consolas, monospace;
-            resize: none;
-            outline: none;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
         }
 
-        textarea:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 3px rgba(0, 123, 255, 0.3);
+        .table-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            table-layout: fixed;
+        }
+
+        th {
+            background-color: #eaeaea;
+            padding: 6px 4px;
+            font-size: 11px;
+            position: sticky;
+            top: 0;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+        }
+
+        td {
+            padding: 6px 4px;
+            border-bottom: 1px solid #eee;
+            font-size: 11px;
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
+
+        tr:hover td {
+            background-color: #e3f2fd;
+        }
+
+        .cell-link {
+            color: #007bff;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .cross-tag {
+            color: #ff9800;
+            font-size: 10px;
+            margin-left: 2px;
+        }
+
+        .status {
+            margin-top: 6px;
+            font-size: 10px;
+            color: #888;
+            text-align: center;
+            flex-shrink: 0;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="toolbar">
-        <label>备注栏:
-            <select id="remarkMode">
-                <option value="space">空格键</option>
-                <option value="bracket">括号</option>
-            </select>
-        </label>
-
-        <label>录入:
-            <select id="enterMode">
-                <option value="enter">ENTER</option>
-                <option value="click">点击</option>
-            </select>
-        </label>
-
-        <div class="color-picker-wrapper">
-            <div id="currentColor" class="color-block" onclick="togglePalette()" title="选择填充颜色"></div>
-
-            <div id="colorPalette" class="palette-popup">
-                <div class="palette-title">主题颜色</div>
-                <div id="themeColors" class="color-grid"></div>
-
-                <div class="palette-title" style="margin-top: 4px;">标准色</div>
-                <div id="standardColors" class="color-grid"></div>
-
-                <hr style="border: none; border-top: 1px solid #eee; margin: 6px 0;">
-
-                <div class="action-btn" onclick="selectColor('none')">
-                    <span
-                        style="color: red; font-weight: bold; border: 1px solid #ccc; width:12px; height:12px; display:inline-flex; align-items:center; justify-content:center; background:#fff;">×</span>
-                    无填充颜色
-                </div>
-
-                <div class="action-btn" onclick="openNativePicker()">
-                    <span
-                        style="width:12px; height:12px; display:inline-block; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); border-radius: 50%; border:1px solid #ccc;"></span>
-                    其他颜色(M)...
-                </div>
-            </div>
-
-            <input type="color" id="nativeColorPicker" style="display: none;">
+    <div class="controls">
+        <div class="radio-group">
+            <label><input type="radio" name="traceType" id="typePrec" checked onchange="refreshData()"> 引用来源</label>
+            <label><input type="radio" name="traceType" id="typeDep" onchange="refreshData()"> 被引用</label>
         </div>
-
-        <label><input type="checkbox" id="chkTop"> 置顶</label>
-        <a href="#" class="link">教程</a>
+        <div class="btn-group">
+            <button class="btn btn-return" onclick="returnToOrigin()" title="返回到最初扫描的母单元格">返回</button>
+            <button class="btn btn-refresh" onclick="refreshData()">刷新</button>
+            <button class="btn btn-select-all" onclick="selectAll()">全选</button>
+        </div>
     </div>
 
-    <textarea id="formulaInput" placeholder="在这里输入公式..."></textarea>
+    <div class="target-info">
+        当前分析对象：<span class="target-id" id="targetCell">无</span>
+    </div>
+
+    <div class="table-container">
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="45%">坐标</th>
+                        <th width="55%">数值/公式</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="status" id="statusMsg">请选中单元格点击刷新。</div>
 
     <script>
-        const themeHex = ['#ffffff', '#000000', '#e7e6e6', '#44546a', '#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47'];
-        const standardHex = ['#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'];
-        const defaultColor = '#00b0f0';
+        let foundRange = null;
+        let originSheetName = "";
+        let originAddress = "";
 
         window.onload = function () {
-            initColorPalette();
-            let savedColor = localStorage.getItem("calc_fill_color");
-            applyColorToBlock(savedColor ? savedColor : defaultColor);
-
-            document.getElementById('nativeColorPicker').addEventListener('input', function (e) {
-                selectColor(e.target.value);
-            });
-        };
-
-        function initColorPalette() {
-            let themeDiv = document.getElementById('themeColors');
-            let standardDiv = document.getElementById('standardColors');
-
-            themeHex.forEach(color => {
-                themeDiv.innerHTML += `<div class="color-cell" style="background-color:${color}" onclick="selectColor('${color}')" title="${color}"></div>`;
-            });
-            standardHex.forEach(color => {
-                standardDiv.innerHTML += `<div class="color-cell" style="background-color:${color}" onclick="selectColor('${color}')" title="${color}"></div>`;
-            });
+            refreshData();
         }
 
-        function togglePalette() {
-            let p = document.getElementById('colorPalette');
-            p.style.display = (p.style.display === 'block') ? 'none' : 'block';
-        }
+        function refreshData() {
+            const app = wps.Application;
+            const activeCell = app.ActiveCell;
+            const tbody = document.getElementById("resultBody");
+            const statusMsg = document.getElementById("statusMsg");
+            const targetLabel = document.getElementById("targetCell");
 
-        function hidePalette() {
-            document.getElementById('colorPalette').style.display = 'none';
-        }
+            tbody.innerHTML = "";
+            foundRange = null;
 
-        // 🚨 核心魔法：监听全局点击事件，实现“点击空白处自动收起色板”
-        document.addEventListener('click', function (event) {
-            let wrapper = document.querySelector('.color-picker-wrapper');
-            let palette = document.getElementById('colorPalette');
-            // 如果点的地方既不是色板内部，也不是那个方块按钮，就把它收起来！
-            if (wrapper && !wrapper.contains(event.target)) {
-                palette.style.display = 'none';
+            if (!activeCell) {
+                targetLabel.innerText = "未选中";
+                statusMsg.innerText = "未选中任何单元格！";
+                return;
             }
-        });
 
-        function openNativePicker() {
-            document.getElementById('nativeColorPicker').click();
-        }
+            let currentSheetName = activeCell.Parent.Name;
+            originSheetName = currentSheetName;
+            originAddress = activeCell.Address(false, false);
+            let safeSheetName = /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(currentSheetName) ? currentSheetName : "'" + currentSheetName + "'";
 
-        function selectColor(colorHex) {
-            applyColorToBlock(colorHex);
-            localStorage.setItem("calc_fill_color", colorHex);
-            hidePalette();
-        }
+            targetLabel.innerText = safeSheetName + "!" + originAddress;
 
-        function applyColorToBlock(colorHex) {
-            let block = document.getElementById('currentColor');
-            if (colorHex === 'none') {
-                block.style.background = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 10 10\'><line x1=\'0\' y1=\'10\' x2=\'10\' y2=\'0\' stroke=\'red\' stroke-width=\'1.5\'/></svg>") white';
-            } else {
-                block.style.background = colorHex;
+            let isPrecedent = document.getElementById("typePrec").checked;
+            let htmlStr = "";
+            let count = 0;
+            let addedAddresses = new Set();
+
+            try {
+                if (isPrecedent) {
+                    foundRange = activeCell.DirectPrecedents;
+                } else {
+                    foundRange = activeCell.DirectDependents;
+                }
+            } catch (e) {
+                foundRange = null;
             }
-        }
 
-        document.getElementById("formulaInput").addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                let text = this.value;
-                if (!text) return;
+            if (foundRange) {
+                for (let i = 1; i <= foundRange.Areas.Count; i++) {
+                    let area = foundRange.Areas.Item(i);
+                    for (let c = 1; c <= area.Count; c++) {
+                        let cell = area.Item(c);
+                        let cellAddr = cell.Address(false, false);
+                        let address = safeSheetName + "!" + cellAddr;
+                        let val = cell.Text || cell.Value2 || "";
 
-                let currentColor = localStorage.getItem("calc_fill_color") || defaultColor;
-                const app = wps.Application;
-
-                if (app.ActiveCell) {
-                    try {
-                        app.ActiveCell.Value2 = text;
-                        if (currentColor === 'none') {
-                            app.ActiveCell.Interior.ColorIndex = 0;
-                        } else {
-                            app.ActiveCell.Interior.Color = hexToBgr(currentColor);
-                        }
-                    } catch (err) {
-                        console.log("写入报错", err);
+                        addedAddresses.add(currentSheetName + "!" + cellAddr.replace(/\$/g, ''));
+                        htmlStr += renderRow(address, val, "");
+                        count++;
                     }
                 }
-                this.value = "";
             }
-        });
 
-        function hexToBgr(hex) {
-            hex = hex.replace('#', '');
-            let r = parseInt(hex.substring(0, 2), 16);
-            let g = parseInt(hex.substring(2, 4), 16);
-            let b = parseInt(hex.substring(4, 6), 16);
-            return r + (g * 256) + (b * 65536);
+            if (isPrecedent && activeCell.HasFormula) {
+                let formula = activeCell.Formula;
+                let regex = /(?:'([^']+)'!|([a-zA-Z0-9_\u4e00-\u9fa5]+)!)\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?/g;
+                let matches = formula.match(regex);
+                if (matches) {
+                    let uniqueMatches = [...new Set(matches)];
+                    for (let m of uniqueMatches) {
+                        try {
+                            let parts = m.split('!');
+                            let refSh = parts[0].replace(/'/g, '');
+                            if (refSh === currentSheetName) continue;
+                            let refCellAddr = parts[1].replace(/\$/g, '');
+                            if (!addedAddresses.has(refSh + "!" + refCellAddr)) {
+                                addedAddresses.add(refSh + "!" + refCellAddr);
+                                let refCell = app.Range(m);
+                                htmlStr += renderRow(m, refCell.Text || refCell.Value2 || "", "[跨表]");
+                                count++;
+                            }
+                        } catch (err) { }
+                    }
+                }
+            }
+
+            if (!isPrecedent) {
+                let escapedSh = currentSheetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                let regexExtract = new RegExp("('?" + escapedSh + "'?!\\$?[A-Za-z]+\\$?[0-9]+(?::\\$?[A-Za-z]+\\$?[0-9]+)?)", "gi");
+
+                for (let s = 1; s <= app.Worksheets.Count; s++) {
+                    let sh = app.Worksheets.Item(s);
+                    if (sh.Name === currentSheetName) continue;
+                    try {
+                        let formulaCells = sh.UsedRange.SpecialCells(-4123);
+                        if (!formulaCells) continue;
+                        let sNameSafe = /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(sh.Name) ? sh.Name : "'" + sh.Name + "'";
+
+                        for (let i = 1; i <= formulaCells.Areas.Count; i++) {
+                            let area = formulaCells.Areas.Item(i);
+                            for (let c = 1; c <= area.Count; c++) {
+                                let cell = area.Item(c);
+                                let f = cell.Formula;
+                                if (f && typeof f === 'string') {
+                                    let matches = f.match(regexExtract);
+                                    if (matches) {
+                                        let isDependent = false;
+                                        for (let m of matches) {
+                                            try {
+                                                if (app.Intersect(activeCell, app.Range(m)) !== null) {
+                                                    isDependent = true; break;
+                                                }
+                                            } catch (err) { }
+                                        }
+                                        if (isDependent) {
+                                            let cellAddr = cell.Address(false, false);
+                                            let addr = sNameSafe + "!" + cellAddr;
+                                            if (!addedAddresses.has(sh.Name + "!" + cellAddr.replace(/\$/g, ''))) {
+                                                addedAddresses.add(sh.Name + "!" + cellAddr.replace(/\$/g, ''));
+                                                htmlStr += renderRow(addr, cell.Text || cell.Value2 || "", "[跨表]");
+                                                count++;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) { }
+                }
+            }
+
+            tbody.innerHTML = htmlStr;
+            statusMsg.innerText = count === 0 ? "未找到关联单元格！" : `共发现 ${count} 个目标。`;
+        }
+
+        function renderRow(address, val, tag) {
+            let tagHtml = tag ? `<span class="cross-tag">${tag}</span>` : "";
+            return `<tr><td><span class="cell-link" onclick="jumpToCell(this.innerText)">${address}</span></td><td>${val} ${tagHtml}</td></tr>`;
+        }
+
+        function jumpToCell(address) {
+            try {
+                const app = wps.Application;
+                let parts = address.split("!");
+                if (parts.length === 2) {
+                    let sheetName = parts[0].replace(/'/g, '');
+                    app.Worksheets.Item(sheetName).Activate();
+                    app.ActiveSheet.Range(parts[1]).Select();
+                } else {
+                    app.Range(address).Select();
+                }
+            } catch (e) { }
+        }
+
+        function returnToOrigin() {
+            if (!originSheetName || !originAddress) {
+                alert("没有记录到母单元格，请先执行一次刷新扫描！");
+                return;
+            }
+            try {
+                const app = wps.Application;
+                app.Worksheets.Item(originSheetName).Activate();
+                app.ActiveSheet.Range(originAddress).Select();
+            } catch (e) {
+                alert("回城失败！可能是该工作表已被删除。");
+            }
+        }
+
+        function selectAll() {
+            if (foundRange) {
+                try { foundRange.Select(); } catch (e) { }
+            } else {
+                alert("当前页没有可全选的内容(跨表需点击跳转)");
+            }
         }
     </script>
 </body>

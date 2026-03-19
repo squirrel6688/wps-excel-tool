@@ -5,7 +5,6 @@
     <meta charset="utf-8">
     <title>录入计算公式</title>
     <style>
-        /* 极致紧凑的通用排版 */
         body {
             font-family: "Microsoft YaHei";
             margin: 0;
@@ -33,37 +32,24 @@
             outline: none;
             border: 1px solid #ccc;
             border-radius: 3px;
+            cursor: pointer;
         }
 
         label {
             display: flex;
             align-items: center;
             gap: 4px;
-            cursor: pointer;
+            font-weight: bold;
+            color: #555;
         }
 
-        input[type="checkbox"] {
-            margin: 0;
-            cursor: pointer;
-        }
-
-        .link {
-            color: #007bff;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .link:hover {
-            text-decoration: underline;
-        }
-
-        /* ================= WPS 风格调色板专属 CSS (已修复错乱问题) ================= */
         .color-picker-wrapper {
             position: relative;
             display: inline-block;
+            margin-left: auto;
+            /* 将色板推到最右侧使排版更好看 */
         }
 
-        /* 颜色显示方块（主按钮） */
         .color-block {
             width: 16px;
             height: 16px;
@@ -77,12 +63,12 @@
             border-color: #000;
         }
 
-        /* 悬浮弹出的调色板面板：加宽以完美容纳 10 个方块 */
         .palette-popup {
             display: none;
             position: absolute;
             top: 24px;
-            left: 0;
+            right: 0;
+            /* 改为右对齐，防止超出弹窗边缘 */
             background: white;
             border: 1px solid #ccc;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
@@ -90,15 +76,17 @@
             z-index: 100;
             width: 170px;
             border-radius: 4px;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .palette-title {
             font-size: 11px;
             color: #666;
             margin-bottom: 6px;
+            font-weight: normal;
         }
 
-        /* 强制锁定网格布局，防止方块被挤压变形 */
         .color-grid {
             display: grid;
             grid-template-columns: repeat(10, 14px);
@@ -107,7 +95,6 @@
             margin-bottom: 8px;
         }
 
-        /* 单个颜色小方块：强制长宽和边框不干扰 */
         .color-cell {
             width: 14px;
             height: 14px;
@@ -122,7 +109,6 @@
             transition: all 0.1s;
         }
 
-        /* 底部操作按钮：其他颜色 / 无填充颜色 */
         .action-btn {
             display: flex;
             align-items: center;
@@ -139,8 +125,6 @@
             background: #f0f0f0;
             border: 1px solid #ccc;
         }
-
-        /* ========================================================= */
 
         textarea {
             width: 100%;
@@ -165,22 +149,22 @@
 <body>
 
     <div class="toolbar">
-        <label>备注栏:
+        <label>备注栏快捷键:
             <select id="remarkMode">
-                <option value="space">空格键</option>
-                <option value="bracket">括号</option>
+                <option value="space" selected>空格</option>
+                <option value="ctrl_space">CTRL+空格</option>
             </select>
         </label>
 
-        <label>录入:
+        <label style="margin-left: 10px;">录入快捷键:
             <select id="enterMode">
-                <option value="enter">ENTER</option>
-                <option value="click">点击</option>
+                <option value="enter" selected>ENTER</option>
+                <option value="ctrl_enter">CTRL+ENTER</option>
             </select>
         </label>
 
         <div class="color-picker-wrapper">
-            <div id="currentColor" class="color-block" onclick="togglePalette()" title="选择填充颜色"></div>
+            <div id="currentColor" class="color-block" onclick="togglePalette()" title="选择备注字体颜色"></div>
 
             <div id="colorPalette" class="palette-popup">
                 <div class="palette-title">主题颜色</div>
@@ -194,7 +178,7 @@
                 <div class="action-btn" onclick="selectColor('none')">
                     <span
                         style="color: red; font-weight: bold; border: 1px solid #ccc; width:12px; height:12px; display:inline-flex; align-items:center; justify-content:center; background:#fff;">×</span>
-                    无填充颜色
+                    自动颜色
                 </div>
 
                 <div class="action-btn" onclick="openNativePicker()">
@@ -206,58 +190,35 @@
 
             <input type="color" id="nativeColorPicker" style="display: none;">
         </div>
-
-        <label><input type="checkbox" id="chkTop"> 置顶</label>
-        <a href="#" class="link">教程</a>
     </div>
 
-    <textarea id="formulaInput" placeholder="在这里输入公式..."></textarea>
+    <textarea id="formulaInput" placeholder="在此输入，通过快捷键生成 [] 备注及录入表格..."></textarea>
 
     <script>
-        // 1. 定义与 WPS 高度一致的颜色数据 (Hex 格式)
-        const themeHex = [
-            '#ffffff', '#000000', '#e7e6e6', '#44546a', '#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47'
-        ];
-        const standardHex = [
-            '#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'
-        ];
+        const themeHex = ['#ffffff', '#000000', '#e7e6e6', '#44546a', '#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47'];
+        const standardHex = ['#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'];
+        const defaultColor = '#ff0000'; // 默认备注颜色为红色
 
-        // 默认颜色（天蓝色）
-        const defaultColor = '#00b0f0';
-
-        // 窗口加载完毕时执行初始化
         window.onload = function () {
-            initColorPalette(); // 渲染调色板格子
+            initColorPalette();
+            let savedColor = localStorage.getItem("calc_font_color");
+            applyColorToBlock(savedColor ? savedColor : defaultColor);
 
-            // 🚨 记忆读取：从 localStorage 中读取上次保存的颜色
-            let savedColor = localStorage.getItem("calc_fill_color");
-            if (!savedColor) {
-                applyColorToBlock(defaultColor); // 没记录就用默认色
-            } else {
-                applyColorToBlock(savedColor);   // 有记录就恢复上次的颜色
-            }
-
-            // 监听隐藏的“系统取色器”，当用户在里面选好颜色确定后触发
             document.getElementById('nativeColorPicker').addEventListener('input', function (e) {
-                let chosenColor = e.target.value;
-                selectColor(chosenColor); // 走统一的颜色保存逻辑
+                selectColor(e.target.value);
             });
+
+            // 自动让文本框获得焦点，提升操作效率
+            document.getElementById('formulaInput').focus();
         };
 
-        // 初始化渲染调色板 DOM
         function initColorPalette() {
             let themeDiv = document.getElementById('themeColors');
             let standardDiv = document.getElementById('standardColors');
-
-            themeHex.forEach(color => {
-                themeDiv.innerHTML += `<div class="color-cell" style="background-color:${color}" onclick="selectColor('${color}')" title="${color}"></div>`;
-            });
-            standardHex.forEach(color => {
-                standardDiv.innerHTML += `<div class="color-cell" style="background-color:${color}" onclick="selectColor('${color}')" title="${color}"></div>`;
-            });
+            themeHex.forEach(color => themeDiv.innerHTML += `<div class="color-cell" style="background-color:${color}" onclick="selectColor('${color}')"></div>`);
+            standardHex.forEach(color => standardDiv.innerHTML += `<div class="color-cell" style="background-color:${color}" onclick="selectColor('${color}')"></div>`);
         }
 
-        // 打开/关闭 调色板
         function togglePalette() {
             let p = document.getElementById('colorPalette');
             p.style.display = (p.style.display === 'block') ? 'none' : 'block';
@@ -267,21 +228,21 @@
             document.getElementById('colorPalette').style.display = 'none';
         }
 
-        // 🚨 唤起系统的“其他颜色”选择器
-        function openNativePicker() {
-            document.getElementById('nativeColorPicker').click();
-        }
+        document.addEventListener('click', function (event) {
+            let wrapper = document.querySelector('.color-picker-wrapper');
+            let palette = document.getElementById('colorPalette');
+            if (wrapper && !wrapper.contains(event.target)) palette.style.display = 'none';
+        });
 
-        // 🚨 记忆保存：用户点击任何色块或取色器后触发
+        function openNativePicker() { document.getElementById('nativeColorPicker').click(); }
+
         function selectColor(colorHex) {
             applyColorToBlock(colorHex);
-
-            // 存入 localStorage，下次打开弹窗自动带入
-            localStorage.setItem("calc_fill_color", colorHex);
+            localStorage.setItem("calc_font_color", colorHex);
             hidePalette();
+            document.getElementById('formulaInput').focus(); // 选完颜色焦点立刻回到输入框
         }
 
-        // 仅改变方块颜色的 UI 渲染
         function applyColorToBlock(colorHex) {
             let block = document.getElementById('currentColor');
             if (colorHex === 'none') {
@@ -291,42 +252,6 @@
             }
         }
 
-        // ===============================================================
-        // 👇 核心录入与填色逻辑 (监听回车键)
-        // ===============================================================
-        document.getElementById("formulaInput").addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                e.preventDefault();
-
-                let text = this.value;
-                if (!text) return;
-
-                // 1. 获取用户目前选择的颜色（从缓存读取）
-                let currentColor = localStorage.getItem("calc_fill_color") || defaultColor;
-
-                // 2. 调用 WPS API 执行写入和涂色逻辑
-                const app = wps.Application;
-                if (app.ActiveCell) {
-                    try {
-                        app.ActiveCell.Value2 = text;
-
-                        // 涂色逻辑
-                        if (currentColor === 'none') {
-                            app.ActiveCell.Interior.ColorIndex = 0; // 取消颜色
-                        } else {
-                            // 必须转换为 BGR 数字格式才能被 Excel 底层识别
-                            app.ActiveCell.Interior.Color = hexToBgr(currentColor);
-                        }
-                    } catch (err) {
-                        console.log("写入报错", err);
-                    }
-                }
-
-                this.value = ""; // 清空输入框
-            }
-        });
-
-        // 辅助工具：将网页十六进制颜色 #FF0000 转换为 WPS VBA 识别的数字颜色
         function hexToBgr(hex) {
             hex = hex.replace('#', '');
             let r = parseInt(hex.substring(0, 2), 16);
@@ -334,6 +259,64 @@
             let b = parseInt(hex.substring(4, 6), 16);
             return r + (g * 256) + (b * 65536);
         }
+
+        // ==========================================
+        // 核心键盘逻辑：处理快捷键交互
+        // ==========================================
+        document.getElementById("formulaInput").addEventListener("keydown", function (e) {
+            let remarkMode = document.getElementById("remarkMode").value;
+            let enterMode = document.getElementById("enterMode").value;
+
+            // 逻辑判定：是否触发了插入备注的快捷键
+            let isSpaceTrigger = (remarkMode === "space" && e.key === " " && !e.ctrlKey);
+            let isCtrlSpaceTrigger = (remarkMode === "ctrl_space" && e.key === " " && e.ctrlKey);
+
+            if (isSpaceTrigger || isCtrlSpaceTrigger) {
+                e.preventDefault();
+                let start = this.selectionStart;
+                let end = this.selectionEnd;
+                let val = this.value;
+
+                this.value = val.substring(0, start) + "[]" + val.substring(end);
+                this.selectionStart = this.selectionEnd = start + 1;
+                return;
+            }
+
+            // 逻辑判定：是否触发了录入表格的快捷键
+            let isEnterTrigger = (enterMode === "enter" && e.key === "Enter" && !e.ctrlKey);
+            let isCtrlEnterTrigger = (enterMode === "ctrl_enter" && e.key === "Enter" && e.ctrlKey);
+
+            if (isEnterTrigger || isCtrlEnterTrigger) {
+                e.preventDefault();
+
+                let text = this.value;
+                if (!text) return;
+
+                let currentColor = localStorage.getItem("calc_font_color") || defaultColor;
+                const app = wps.Application;
+
+                if (app.ActiveCell) {
+                    try {
+                        app.ActiveCell.Value2 = text;
+
+                        if (currentColor !== 'none') {
+                            let bgrColor = hexToBgr(currentColor);
+                            let regex = /\[.*?\]/g;
+                            let match;
+                            while ((match = regex.exec(text)) !== null) {
+                                let startIdx = match.index + 1;
+                                let len = match[0].length;
+                                app.ActiveCell.Characters(startIdx, len).Font.Color = bgrColor;
+                            }
+                        }
+                    } catch (err) {
+                        console.log("写入报错", err);
+                    }
+                }
+
+                this.value = "";
+            }
+        });
     </script>
 </body>
 
