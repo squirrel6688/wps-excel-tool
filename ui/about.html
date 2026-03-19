@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>关于量效助手</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei";
+            margin: 0;
+            padding: 20px;
+            background-color: #fff;
+            color: #333;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .logo-area {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #217346;
+        }
+
+        .version {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .intro {
+            margin-bottom: 15px;
+        }
+
+        /* 风险提示框，采用红色警示风格 */
+        .warning-box {
+            background-color: #fff3f3;
+            border-left: 4px solid #dc3545;
+            padding: 12px;
+            border-radius: 4px;
+            color: #c82333;
+        }
+
+        .warning-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .warning-text {
+            font-size: 12px;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="logo-area">
+        <div class="title">量效助手 Plugin</div>
+        <div class="version">当前版本：V 1.0.0</div>
+    </div>
+
+    <div class="intro">
+        本插件专为工程算量领域深度定制，致力于通过代码自动化提升日常处理报表、清洗格式及数据透析的效率。
+    </div>
+
+    <div class="warning-box">
+        <div class="warning-title">⚠️ 核心风险提示</div>
+        <div class="warning-text">
+            由于 WPS JS 宏底层的机制限制，<b>本插件执行的绝大多数批量操作（如：一键去底色转数值、清洗数据、自动填色等）是不可逆的，无法通过 <code>Ctrl + Z</code> 撤销。</b><br><br>
+            强烈建议：在处理重要的工程报表时，请务必<b>先保存或备份原文件</b>，以免造成数据意外丢失。
+        </div>
+    </div>
+
+    <script>
+        // 窗口关闭时自动解除锁定状态，防止死锁
+        window.onbeforeunload = function () {
+            wps.PluginStorage.setItem("about_open", "false");
+        };
+    </script>
+</body>
+
+</html>

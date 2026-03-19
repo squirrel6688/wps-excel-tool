@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>数据透析与汇总</title>
+    <title>数据透视与汇总</title>
     <style>
         /* 极致紧凑排版 */
         body {
@@ -35,28 +35,67 @@
         }
 
         .floor-container {
-            max-height: 180px;
+            max-height: 220px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            padding: 4px 0;
         }
 
+        /* 带下拉菜单和倍数输入框的排版 */
         .floor-item {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            cursor: pointer;
-            font-size: 12px;
-            padding: 2px 4px;
+            padding: 6px 4px;
+            border-bottom: 1px dashed #eee;
         }
 
         .floor-item:hover {
             background-color: #e3f2fd;
         }
 
+        .floor-name {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
         input[type="checkbox"] {
             margin: 0 6px 0 0;
+            cursor: pointer;
+        }
+
+        /* 右侧操作区 */
+        .opt-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .lbl-mult {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .sel-mult {
+            width: 36px;
+            padding: 2px;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            outline: none;
+            text-align: center;
+        }
+
+        .sel-formwork {
+            width: 55px;
+            padding: 2px;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            outline: none;
             cursor: pointer;
         }
 
@@ -106,7 +145,7 @@
 
     <div class="section">
         <div class="title">
-            <span>📌 请勾选需要透析的楼层</span>
+            <span>📌 请勾选楼层并设置标准层倍数</span>
             <span class="link-btn" onclick="toggleSelectAll()">全选/反选</span>
         </div>
         <div class="floor-container" id="floorList">
@@ -115,10 +154,10 @@
     </div>
 
     <div class="btn-group">
-        <button class="btn btn-exec" onclick="generatePivot()">🚀 生成公式溯源汇总表</button>
+        <button class="btn btn-exec" onclick="generatePivot()">🚀 生成高级数据透视表</button>
     </div>
 
-    <div class="status" id="statusMsg">提示：提取明细并保留公式 (例如 =D5+D6) 方便复核。</div>
+    <div class="status" id="statusMsg">提示：已开启无色模式、自动筛选及倍数运算。</div>
 
     <script>
         let rawData = [];
@@ -162,10 +201,26 @@
             listDiv.innerHTML = "";
             if (floorSet.size === 0) return;
 
+            // 🚨 动态渲染：加入标准层倍数输入框，工艺默认锁死“木模”
             floorSet.forEach(floor => {
-                listDiv.insertAdjacentHTML('beforeend', `<label class="floor-item"><input type="checkbox" class="chk-floor" value="${floor}" checked> ${floor}</label>`);
+                let html = `
+                    <div class="floor-item">
+                        <label class="floor-name">
+                            <input type="checkbox" class="chk-floor" value="${floor}" checked> ${floor}
+                        </label>
+                        <div class="opt-group">
+                            <span class="lbl-mult">倍数:</span>
+                            <input type="number" class="sel-mult" value="1" min="1" title="如果是标准层，请填入层数">
+                            <select class="sel-formwork" title="请选择该楼层的模板工艺">
+                                <option value="木模" selected>木模</option>
+                                <option value="铝模">铝模</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                listDiv.insertAdjacentHTML('beforeend', html);
             });
-            document.getElementById("statusMsg").innerText = `雷达扫描完毕，共发现 ${floorSet.size} 个独立楼层。`;
+            document.getElementById("statusMsg").innerText = `共发现 ${floorSet.size} 个楼层，请配置倍数。`;
         }
 
         function toggleSelectAll() {
@@ -175,7 +230,6 @@
             chks.forEach(c => c.checked = !allChecked);
         }
 
-        // 辅助工具：数字转字母 (1 -> A, 2 -> B)
         function getColumnLetter(colIndex) {
             let temp, letter = '';
             while (colIndex > 0) {
@@ -186,13 +240,30 @@
             return letter;
         }
 
-        // 🚀 核心大招：生成带有公式链接、排版完美的汇总表
+        // 🚀 生成高级工艺透视表
         function generatePivot() {
             const app = wps.Application;
             const sheet = app.ActiveSheet;
 
             let checkedFloors = [];
-            document.querySelectorAll('.chk-floor:checked').forEach(cb => checkedFloors.push(cb.value));
+            let formworkMap = {};
+            let multMap = {}; // 记录每个楼层的倍数系数
+
+            // 1. 读取用户的配置 (选中状态、倍数、模板)
+            document.querySelectorAll('.chk-floor:checked').forEach(cb => {
+                let fName = cb.value;
+                checkedFloors.push(fName);
+
+                let parentDiv = cb.closest('.floor-item');
+
+                let selFw = parentDiv.querySelector('.sel-formwork');
+                if (selFw) formworkMap[fName] = selFw.value;
+
+                let inputMult = parentDiv.querySelector('.sel-mult');
+                let multVal = parseInt(inputMult.value);
+                multMap[fName] = (!isNaN(multVal) && multVal > 0) ? multVal : 1;
+            });
+
             if (checkedFloors.length === 0) { alert("请选择楼层！"); return; }
 
             let startRow = sheet.UsedRange.Row;
@@ -202,7 +273,7 @@
             let grouped = new Map();
             let currentA = "", currentB = "", currentC = "";
 
-            // ================= 1. 内存级拆分填充 & 分组提取 =================
+            // 2. 核心扫描与判断
             for (let i = headerRows; i < rawData.length; i++) {
                 let row = rawData[i];
                 let valA = row[0];
@@ -213,105 +284,146 @@
                 if (valB !== null && valB !== undefined && String(valB).trim() !== "") currentB = String(valB).trim();
                 if (valC !== null && valC !== undefined && String(valC).trim() !== "") currentC = String(valC).trim();
 
-                let isSubtotal = (String(valB).indexOf("合计") !== -1) || (String(valB).indexOf("小计") !== -1) || (String(valC).indexOf("小计") !== -1) || (String(valA).indexOf("小计") !== -1);
+                let isSubtotal = (String(valB).indexOf("合计") !== -1) || (String(valB).indexOf("小计") !== -1);
 
                 if (!isSubtotal && checkedFloors.includes(currentA)) {
                     let cleanB = currentB.replace(/\[.*?\]/g, '').replace(/【.*?】/g, '').replace(/［.*?］/g, '').trim();
                     let key = cleanB + "|||" + currentC;
                     if (!grouped.has(key)) {
-                        grouped.set(key, { name: cleanB, material: currentC, rowIndices: [] });
+                        grouped.set(key, {
+                            name: cleanB,
+                            material: currentC,
+                            isBaowen: false,
+                            floors: new Set(),
+                            items: [] // 存放明细对象，包含行号和该行的乘法倍数
+                        });
                     }
-                    grouped.get(key).rowIndices.push(startRow + i);
+
+                    let g = grouped.get(key);
+                    // 将该行的倍数存入
+                    g.items.push({ rIdx: startRow + i, mult: multMap[currentA] });
+                    g.floors.add(currentA);
+
+                    // 保温列判断逻辑
+                    if (currentB.indexOf("保温") !== -1) {
+                        g.isBaowen = true;
+                    }
                 }
             }
 
-            // ================= 2. 组装结果与链接公式 =================
+            // 3. 组装数据 (仅插入保温、模板 2列)
             let resultData = [];
-
             let floorText = checkedFloors.length > 2 ? checkedFloors.slice(0, 2).join(",") + "等" : checkedFloors.join(",");
 
             for (let [key, group] of grouped) {
-                let newRow = new Array(rawData[0].length).fill("");
+                let newRow = new Array(rawData[0].length + 2).fill("");
                 newRow[0] = floorText;
-                newRow[1] = group.name;
-                newRow[2] = group.material;
+
+                // 第2列：写入"保温"
+                newRow[1] = group.isBaowen ? "保温" : "";
+
+                // 第3列：写入"模板工艺"
+                let fwArr = [];
+                group.floors.forEach(f => {
+                    if (formworkMap[f]) fwArr.push(formworkMap[f]);
+                });
+                newRow[2] = Array.from(new Set(fwArr)).join(",");
+
+                // 往后偏移2位写入原始名称和材质
+                newRow[3] = group.name;
+                newRow[4] = group.material;
 
                 for (let c = 3; c < rawData[0].length; c++) {
                     let colLetter = getColumnLetter(startCol + c);
                     let formulaParts = [];
 
-                    for (let rIdx of group.rowIndices) {
-                        let cellVal = Number(rawData[rIdx - startRow][c]);
+                    for (let item of group.items) {
+                        let cellVal = Number(rawData[item.rIdx - startRow][c]);
                         if (!isNaN(cellVal) && cellVal !== 0) {
-                            formulaParts.push(safeOrigName + "!" + colLetter + rIdx);
+                            // 🚨 核心倍数逻辑：如果倍数大于1，拼接时自动加上乘号！
+                            if (item.mult > 1) {
+                                formulaParts.push(safeOrigName + "!" + colLetter + item.rIdx + "*" + item.mult);
+                            } else {
+                                formulaParts.push(safeOrigName + "!" + colLetter + item.rIdx);
+                            }
                         }
                     }
 
                     if (formulaParts.length > 0) {
-                        newRow[c] = "=" + formulaParts.join("+");
+                        newRow[c + 2] = "=" + formulaParts.join("+");
                     } else {
-                        newRow[c] = 0;
+                        newRow[c + 2] = 0;
                     }
                 }
                 resultData.push(newRow);
             }
 
-            // ================= 3. 底部求和总计 =================
-            let totalRow = new Array(rawData[0].length).fill("");
-            totalRow[0] = "透析总计";
-            totalRow[1] = `共汇总 ${checkedFloors.length} 个楼层`;
+            // 4. 底部总计行处理
+            let totalRow = new Array(rawData[0].length + 2).fill("");
+            totalRow[0] = "透视总计";
+            totalRow[3] = `共汇总 ${checkedFloors.length} 个楼层`;
 
             let lastDataRowIdx = headerRows + resultData.length + 1;
 
-            for (let c = 3; c < totalRow.length; c++) {
-                let colLetter = getColumnLetter(startCol + c);
-                totalRow[c] = `=SUM(${colLetter}${headerRows + 1}:${colLetter}${lastDataRowIdx - 1})`;
+            for (let c = 3; c < rawData[0].length; c++) {
+                let sumColLetter = getColumnLetter(startCol + c + 2);
+                totalRow[c + 2] = `=SUM(${sumColLetter}${headerRows + 1}:${sumColLetter}${lastDataRowIdx - 1})`;
             }
             resultData.push(totalRow);
 
-            // ================= 4. 输出与像素级完美排版 =================
+            // 5. 新建工作表并进行完美的排版
             try {
                 let newSheet = app.Worksheets.Add();
-                newSheet.Name = "算量透析_" + Math.floor(Math.random() * 1000);
+                newSheet.Name = "算量透视_" + Math.floor(Math.random() * 1000);
 
-                // 🚨 神技1：完美复制表头格式，之后对表头“只字不改”，绝不污染边框！
+                // 复制表头
                 sheet.Range("1:" + headerRows).Copy(newSheet.Range("A1"));
 
-                // 写入数据区域
+                // 插入2列：B列和C列
+                newSheet.Range("B:C").EntireColumn.Insert();
+
+                // 写入新的表头名称
+                newSheet.Range("B" + headerRows).Value2 = "保温";
+                newSheet.Range("C" + headerRows).Value2 = "模板工艺";
+
+                // 写入运算好的新数据
                 let dataStartRow = headerRows + 1;
-                let targetRange = newSheet.Range("A" + dataStartRow).Resize(resultData.length, resultData[0].length);
+                let targetRange = newSheet.Range("A" + dataStartRow).Resize(resultData.length, rawData[0].length + 2);
                 targetRange.Formula = resultData;
 
-                // 🚨 神技2：仅对新生成的数据区设置居中与换行
-                targetRange.HorizontalAlignment = -4108; // 居中
-                targetRange.VerticalAlignment = -4108;   // 居中
-                targetRange.WrapText = true;             // 自动换行
+                // ================= 格式终极处理区 =================
+                let fullRange = newSheet.UsedRange;
 
-                // 🚨 神技3：仅对新生成的数据区画最普通的细实线边框 (LineStyle=1, Weight=2)
-                targetRange.Borders.LineStyle = 1;
-                targetRange.Borders.Weight = 2; // xlThin，绝对不加粗！
+                // 清除所有背景色
+                fullRange.Interior.ColorIndex = 0;
 
-                // 底部合计行特殊标黄加粗
+                // 全局居中与换行
+                fullRange.HorizontalAlignment = -4108;
+                fullRange.VerticalAlignment = -4108;
+                fullRange.WrapText = true;
+
+                // 画线框
+                fullRange.Borders.LineStyle = 1;
+                fullRange.Borders.Weight = 2;
+
+                // 开启第二行自动筛选
+                newSheet.Range("2:2").AutoFilter();
+
+                // 底部合计行加粗
                 let lastRowStr = lastDataRowIdx + ":" + lastDataRowIdx;
                 newSheet.Range(lastRowStr).Font.Bold = true;
-                newSheet.Range(lastRowStr).Interior.Color = 65535;
 
-                // 🚨 神技4：严格锁定尺寸要求！（完美兼容 WPS JS）
-                // 1. 设置第2行行高为 59
+                // 恢复尺寸设置
                 newSheet.Range("2:2").RowHeight = 59;
+                let endColLetter = getColumnLetter(rawData[0].length + 2);
+                newSheet.Range("D:" + endColLetter).ColumnWidth = 9; // 数据列宽9
+                newSheet.Range("B:C").ColumnWidth = 7; // 保温工艺列稍窄
+                newSheet.Range("A:A").EntireColumn.AutoFit(); // 楼层自适应
 
-                // 2. 第一列之后（B列一直到最后一列），全部设为9个字符宽
-                let endColLetter = getColumnLetter(rawData[0].length);
-                newSheet.Range("B:" + endColLetter).ColumnWidth = 9;
-
-                // 3. 仅对 A 列开启自动适应列宽，防止文字被遮挡
-                newSheet.Range("A:A").EntireColumn.AutoFit();
-
-                alert("🎉 生成完毕！行高 59、列宽 9，原表头格式已完美保护！");
+                alert("🎉 高级透视生成完毕！");
             } catch (e) {
                 alert("生成失败，错误信息：" + e.message);
             }
-
         }
     </script>
 </body>
