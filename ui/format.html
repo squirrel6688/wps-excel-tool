@@ -1,115 +1,441 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
-    <title>格式清洗</title>
+    <title>优化工程量表</title>
     <style>
-        /* 极致紧凑排版 */
-        body { font-family: "Microsoft YaHei"; margin: 0; padding: 8px; background-color: #f5f5f5; color: #333; font-size: 12px; }
-        .section { background: white; padding: 8px 10px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-bottom: 8px; }
-        .title { font-weight: bold; margin-bottom: 6px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; font-size: 12px; }
-        
-        /* 复选框紧凑布局 */
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px 10px; }
-        .checkbox-group label { display: flex; align-items: center; cursor: pointer; width: 45%; font-size: 11px; }
-        
-        /* 单选框紧凑布局 */
-        .radio-group { display: flex; gap: 15px; margin-top: 2px;}
-        .radio-group label { display: flex; align-items: center; cursor: pointer; color: #d32f2f; font-weight: bold; font-size: 11px;}
-        
-        input[type="checkbox"], input[type="radio"] { margin: 0 4px 0 0; cursor: pointer; }
+        body {
+            font-family: "Microsoft YaHei";
+            margin: 0;
+            padding: 12px;
+            background-color: #f8f9fa;
+            color: #333;
+            font-size: 13px;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+        }
 
-        /* 按钮紧凑布局 */
-        .btn-group { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; }
-        .btn { flex: 1; padding: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
-        .btn-save { background-color: #6c757d; color: white; }
-        .btn-save:hover { background-color: #5a6268; }
-        .btn-exec { background-color: #007bff; color: white; }
-        .btn-exec:hover { background-color: #0056b3; }
+        .panel {
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+            border: 1px solid #e0e4e8;
+        }
+
+        .panel-title {
+            font-weight: bold;
+            color: #1a73e8;
+            padding: 6px 12px;
+            border-bottom: 1px solid #e0e4e8;
+            background-color: #f1f4f9;
+            border-radius: 6px 6px 0 0;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            padding: 10px 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            color: #444;
+            font-size: 12px;
+        }
+
+        input[type="checkbox"],
+        input[type="radio"] {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .scope-content {
+            display: flex;
+            gap: 20px;
+            padding: 10px 12px;
+        }
+
+        .note-box {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 8px 10px;
+            border-left: 4px solid #ffeeba;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 8px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            color: white;
+        }
+
+        .btn-exec {
+            background-color: #007bff;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn-exec:hover {
+            background-color: #0056b3;
+        }
+
+        .check-all-btn {
+            color: #28a745;
+            font-size: 12px;
+            font-weight: normal;
+            text-decoration: underline;
+            cursor: pointer;
+        }
     </style>
 </head>
+
 <body>
 
-    <div class="section">
-        <div class="title">1. 清洗内容</div>
-        <div class="checkbox-group">
-            <label><input type="checkbox" id="chkColor"> 去除底色</label>
-            <label><input type="checkbox" id="chkWrap"> 自动换行(开启)</label>
-            <label><input type="checkbox" id="chkHCenter"> 水平居中</label>
-            <label><input type="checkbox" id="chkVCenter"> 垂直居中</label>
+    <div class="panel">
+        <div class="panel-title">
+            <span>🎨 基础格式优化</span>
+            <span class="check-all-btn" onclick="toggleChecks('basic')">全选/反选</span>
+        </div>
+        <div class="panel-content" id="group-basic">
+            <label><input type="checkbox" id="chkRemoveColor" class="chk-basic"> 去除底色填充</label>
+            <label><input type="checkbox" id="chkWrapText" class="chk-basic"> 自动换行</label>
+            <label><input type="checkbox" id="chkAlignCenter" class="chk-basic"> 水平居中</label>
+            <label><input type="checkbox" id="chkValignCenter" class="chk-basic"> 垂直居中</label>
+            <label><input type="checkbox" id="chkAutoFilter" class="chk-basic"> 开启自动筛选</label>
+            <label><input type="checkbox" id="chkFreezeHeader" class="chk-basic"> 智能冻结表头</label>
+            <label style="grid-column: span 2; color: #d93025; font-weight: bold;">
+                <input type="checkbox" id="chkStandardLayout" class="chk-basic"> 应用工程排版 (动态识别行高宽,防死板)
+            </label>
         </div>
     </div>
 
-    <div class="section">
-        <div class="title">2. 作用范围</div>
-        <div class="radio-group">
-            <label><input type="radio" name="scope" id="scopeSheet" value="sheet" checked> 当前工作表</label>
-            <label><input type="radio" name="scope" id="scopeAll" value="all"> 所有工作表</label>
+    <div class="panel">
+        <div class="panel-title">
+            <span>🛠️ GTJ 高级数据清理</span>
+            <span class="check-all-btn" onclick="toggleChecks('adv')">全选/反选</span>
         </div>
+        <div class="panel-content" id="group-adv">
+            <label><input type="checkbox" id="chkSimplifyName" class="chk-adv"> 简化工作表名称</label>
+            <label><input type="checkbox" id="chkSplitFill" class="chk-adv"> 拆分单元格并填充</label>
+            <label><input type="checkbox" id="chkTextToNum" class="chk-adv"> 文本转数字</label>
+            <label><input type="checkbox" id="chkCleanSubtotal" class="chk-adv"> 清理小计行</label>
+            <label><input type="checkbox" id="chkCleanTotal" class="chk-adv"> 清理合计行</label>
+            <label><input type="checkbox" id="chkCleanRoom" class="chk-adv"> 清理房间名称</label>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">🎯 作用范围</div>
+        <div class="scope-content">
+            <label><input type="radio" name="scope" value="current" checked> 仅优化当前表</label>
+            <label><input type="radio" name="scope" value="all"> 优化所有工作表</label>
+        </div>
+    </div>
+
+    <div class="note-box">
+        💡 <b>底层内存数组提速引擎已激活！</b><br>
+        本界面功能仅针对<b>【广联达 GTJ 土建装修表】</b>生效，系统会自动规避不相关的表格。
     </div>
 
     <div class="btn-group">
-        <button class="btn btn-save" onclick="saveSettings()">💾 保存配置</button>
-        <button class="btn btn-exec" onclick="executeFormat()">🚀 执行清洗</button>
+        <button class="btn btn-exec" onclick="executeOptimize()">🚀 极速执行优化</button>
     </div>
 
     <script>
-        window.onload = function() {
-            if (localStorage.getItem("fmt_chkColor") !== null) {
-                document.getElementById("chkColor").checked = localStorage.getItem("fmt_chkColor") === "true";
-                document.getElementById("chkWrap").checked = localStorage.getItem("fmt_chkWrap") === "true";
-                document.getElementById("chkHCenter").checked = localStorage.getItem("fmt_chkHCenter") === "true";
-                document.getElementById("chkVCenter").checked = localStorage.getItem("fmt_chkVCenter") === "true";
-                
-                let scope = localStorage.getItem("fmt_scope");
-                if (scope === "all") {
-                    document.getElementById("scopeAll").checked = true;
-                } else {
-                    document.getElementById("scopeSheet").checked = true;
-                }
+        function toggleChecks(groupName) {
+            let className = groupName === 'basic' ? '.chk-basic' : '.chk-adv';
+            let checkboxes = document.querySelectorAll(className);
+            if (checkboxes.length === 0) return;
+            let allChecked = Array.from(checkboxes).every(c => c.checked);
+            checkboxes.forEach(c => c.checked = !allChecked);
+        }
+
+        window.onload = function () {
+            let configStr = localStorage.getItem("gtj_format_config");
+            if (configStr) {
+                try {
+                    let config = JSON.parse(configStr);
+                    document.getElementById('chkRemoveColor').checked = config.removeColor;
+                    document.getElementById('chkWrapText').checked = config.wrapText;
+                    document.getElementById('chkAlignCenter').checked = config.alignCenter;
+                    document.getElementById('chkValignCenter').checked = config.valignCenter;
+                    document.getElementById('chkAutoFilter').checked = config.autoFilter || false;
+                    document.getElementById('chkFreezeHeader').checked = config.freezeHeader || false;
+                    document.getElementById('chkStandardLayout').checked = config.standardLayout || false;
+
+                    document.getElementById('chkSimplifyName').checked = config.simplifyName;
+                    document.getElementById('chkSplitFill').checked = config.splitFill;
+                    document.getElementById('chkTextToNum').checked = config.textToNum;
+                    document.getElementById('chkCleanSubtotal').checked = config.cleanSubtotal;
+                    document.getElementById('chkCleanTotal').checked = config.cleanTotal;
+                    document.getElementById('chkCleanRoom').checked = config.cleanRoom;
+
+                    let scopeRadios = document.getElementsByName('scope');
+                    for (let r of scopeRadios) {
+                        if (r.value === config.scope) { r.checked = true; break; }
+                    }
+                } catch (e) { }
             }
         }
 
-        function saveSettings() {
-            localStorage.setItem("fmt_chkColor", document.getElementById("chkColor").checked);
-            localStorage.setItem("fmt_chkWrap", document.getElementById("chkWrap").checked);
-            localStorage.setItem("fmt_chkHCenter", document.getElementById("chkHCenter").checked);
-            localStorage.setItem("fmt_chkVCenter", document.getElementById("chkVCenter").checked);
-            localStorage.setItem("fmt_scope", document.getElementById("scopeAll").checked ? "all" : "sheet");
-            
-            alert("配置已成功保存！");
-        }
+        function executeOptimize() {
+            let opts = {
+                removeColor: document.getElementById('chkRemoveColor').checked,
+                wrapText: document.getElementById('chkWrapText').checked,
+                alignCenter: document.getElementById('chkAlignCenter').checked,
+                valignCenter: document.getElementById('chkValignCenter').checked,
+                autoFilter: document.getElementById('chkAutoFilter').checked,
+                freezeHeader: document.getElementById('chkFreezeHeader').checked,
+                standardLayout: document.getElementById('chkStandardLayout').checked,
 
-        function executeFormat() {
+                simplifyName: document.getElementById('chkSimplifyName').checked,
+                splitFill: document.getElementById('chkSplitFill').checked,
+                textToNum: document.getElementById('chkTextToNum').checked,
+                cleanSubtotal: document.getElementById('chkCleanSubtotal').checked,
+                cleanTotal: document.getElementById('chkCleanTotal').checked,
+                cleanRoom: document.getElementById('chkCleanRoom').checked,
+                scope: document.querySelector('input[name="scope"]:checked').value
+            };
+
+            localStorage.setItem("gtj_format_config", JSON.stringify(opts));
+
+            const simplifiedKeywords = ["房间", "楼地面", "踢脚", "墙裙", "墙面", "天棚", "吊顶", "独立柱装修", "单梁装修"];
+
+            function isTargetGtjSheet(name) {
+                if (name.indexOf("绘图输入工程量汇总表") !== -1) return true;
+                if (simplifiedKeywords.includes(name)) return true;
+                return false;
+            }
+
             const app = wps.Application;
-            
-            const rmColor = document.getElementById("chkColor").checked;
-            const wrapText = document.getElementById("chkWrap").checked;
-            const hCenter = document.getElementById("chkHCenter").checked;
-            const vCenter = document.getElementById("chkVCenter").checked;
-            const scopeAll = document.getElementById("scopeAll").checked;
+            let targetSheets = [];
+            let originalActiveSheet = app.ActiveSheet;
 
-            const xlCenter = -4108; 
+            if (opts.scope === 'current') {
+                if (isTargetGtjSheet(originalActiveSheet.Name)) targetSheets.push(originalActiveSheet);
+            } else {
+                for (let i = 1; i <= app.Worksheets.Count; i++) {
+                    if (isTargetGtjSheet(app.Worksheets.Item(i).Name)) targetSheets.push(app.Worksheets.Item(i));
+                }
+            }
+
+            if (targetSheets.length === 0) {
+                alert("⚠️ 未找到符合要求的 GTJ 工作表！");
+                return;
+            }
+
+            app.ScreenUpdating = false;
+            let oldCalc = app.Calculation;
+            app.Calculation = -4135;
+            app.EnableEvents = false;
 
             try {
-                let count = scopeAll ? app.Worksheets.Count : 1;
+                for (let i = 0; i < targetSheets.length; i++) {
+                    let sheet = targetSheets[i];
+                    let uRange = sheet.UsedRange;
+                    if (!uRange || uRange.Rows.Count === 1) continue;
 
-                for (let i = 1; i <= count; i++) {
-                    let sheet = scopeAll ? app.Worksheets.Item(i) : app.ActiveSheet;
-                    let rng = sheet.UsedRange; 
-                    
-                    if (!rng) continue;
+                    // --- 1. 简化表名 ---
+                    if (opts.simplifyName) {
+                        let oldName = sheet.Name;
+                        let lastIndex = Math.max(oldName.lastIndexOf("_"), oldName.lastIndexOf("-"));
+                        if (lastIndex !== -1) {
+                            let newName = oldName.substring(lastIndex + 1);
+                            if (newName !== oldName && newName.trim() !== "") {
+                                try { sheet.Name = newName; } catch (e) { }
+                            }
+                        }
+                    }
 
-                    if (rmColor) rng.Interior.ColorIndex = 0; 
-                    if (wrapText) rng.WrapText = true;        
-                    if (hCenter) rng.HorizontalAlignment = xlCenter; 
-                    if (vCenter) rng.VerticalAlignment = xlCenter;   
+                    // --- 2. 局部拆分单元格 ---
+                    if (opts.splitFill && (uRange.MergeCells || uRange.MergeCells === null)) {
+                        let maxCol = Math.min(uRange.Columns.Count, 5);
+                        for (let r = uRange.Rows.Count; r >= 1; r--) {
+                            for (let c = maxCol; c >= 1; c--) {
+                                let cell = sheet.Cells.Item(r, c);
+                                if (cell.MergeCells) {
+                                    let mArea = cell.MergeArea;
+                                    let val = mArea.Cells.Item(1, 1).Value2;
+                                    mArea.UnMerge();
+                                    mArea.Value2 = val;
+                                }
+                            }
+                        }
+                    }
+
+                    // --- 3. 核心数组清理 ---
+                    let vals = uRange.Value2;
+                    let arrayChanged = false;
+                    let rowsToDelete = [];
+                    let regex = /\[.*?\]|【.*?】|［.*?］/g;
+
+                    if (vals && vals.length > 0) {
+                        for (let r = 0; r < vals.length; r++) {
+                            let isSubtotalRow = false;
+
+                            for (let c = 0; c < vals[r].length; c++) {
+                                let v = vals[r][c];
+                                if (typeof v === 'string') {
+                                    let originalV = v;
+
+                                    if (opts.cleanRoom && c < 6) v = v.replace(regex, '').trim();
+
+                                    if (opts.textToNum) {
+                                        let trimmed = v.trim();
+                                        if (trimmed !== '' && !isNaN(trimmed)) v = Number(trimmed);
+                                    }
+
+                                    if (c < 3 && (opts.cleanSubtotal || opts.cleanTotal)) {
+                                        if (opts.cleanSubtotal && v.toString().indexOf("小计") !== -1) isSubtotalRow = true;
+                                        if (opts.cleanTotal && v.toString().indexOf("合计") !== -1) isSubtotalRow = true;
+                                    }
+
+                                    if (v !== originalV) {
+                                        vals[r][c] = v;
+                                        arrayChanged = true;
+                                    }
+                                }
+                            }
+                            if (isSubtotalRow) rowsToDelete.push(r + uRange.Row);
+                        }
+
+                        if (arrayChanged) uRange.Value2 = vals;
+                    }
+
+                    // --- 4. 物理删行 ---
+                    if (rowsToDelete.length > 0) {
+                        for (let k = rowsToDelete.length - 1; k >= 0; k--) {
+                            sheet.Rows.Item(rowsToDelete[k]).Delete();
+                        }
+                    }
+
+                    uRange = sheet.UsedRange;
+
+                    // --- 5. 基础排版 ---
+                    if (opts.removeColor) uRange.Interior.ColorIndex = 0;
+                    if (opts.wrapText) uRange.WrapText = true;
+                    if (opts.alignCenter) uRange.HorizontalAlignment = -4108;
+                    if (opts.valignCenter) uRange.VerticalAlignment = -4108;
+
+                    // --- 6. 🚨 灵活自适应工程排版 (拒绝死板！) ---
+                    if (opts.standardLayout) {
+                        uRange.Font.Name = "宋体";
+                        uRange.Font.Size = 9;
+
+                        // 动态寻找表头行，而不是死守第二行
+                        let headerRow = 2;
+                        let lastCol = uRange.Column + uRange.Columns.Count - 1;
+                        for (let r = 1; r <= 3; r++) {
+                            let rowText = "";
+                            for (let c = 1; c <= 8; c++) { rowText += sheet.Cells.Item(r, c).Text || ""; }
+                            // 只要该行包含了这些词，大概率就是表头
+                            if (rowText.indexOf("名称") !== -1 || rowText.indexOf("材质") !== -1 || rowText.indexOf("面积") !== -1) {
+                                headerRow = r; break;
+                            }
+                        }
+
+                        let lastRow = uRange.Row + uRange.Rows.Count - 1;
+
+                        // 设行高
+                        sheet.Rows.Item(headerRow + ":" + headerRow).RowHeight = 59;
+                        if (lastRow > headerRow) {
+                            sheet.Rows.Item((headerRow + 1) + ":" + lastRow).RowHeight = 13;
+                        }
+
+                        // 智能判断每一列的宽度
+                        for (let c = 1; c <= lastCol; c++) {
+                            let headerText = sheet.Cells.Item(headerRow, c).Text || "";
+                            let headerTextAbove = headerRow > 1 ? (sheet.Cells.Item(headerRow - 1, c).Text || "") : "";
+                            let fullHeader = headerText + headerTextAbove;
+
+                            if (fullHeader.indexOf("楼层") !== -1 || fullHeader.indexOf("名称") !== -1) {
+                                sheet.Columns.Item(c).EntireColumn.AutoFit(); // 楼层、名称自适应
+                            } else if (fullHeader.indexOf("材质") !== -1 || fullHeader.indexOf("厚度") !== -1 || fullHeader.indexOf("保温") !== -1 || fullHeader.indexOf("工艺") !== -1) {
+                                sheet.Columns.Item(c).ColumnWidth = 7; // 属性词缩到7
+                            } else if (fullHeader !== "") {
+                                sheet.Columns.Item(c).ColumnWidth = 9; // 数据列统统为9
+                            }
+                        }
+                    }
+
+                    // --- 7. 智能冻结表头与筛选 ---
+                    if (opts.autoFilter || opts.freezeHeader) {
+                        sheet.Activate();
+
+                        let nameCol = 2;
+                        let headerRowForFreeze = 2;
+                        // 扫描寻找真实的基准坐标
+                        for (let r = 1; r <= 3; r++) {
+                            for (let c = 1; c <= 6; c++) {
+                                let t = sheet.Cells.Item(r, c).Text || "";
+                                if (t.indexOf("名称") !== -1) {
+                                    nameCol = c;
+                                    headerRowForFreeze = r;
+                                }
+                            }
+                        }
+
+                        // 决定冻结的列位置
+                        let freezeCol = nameCol + 1;
+                        let nextHeader = sheet.Cells.Item(headerRowForFreeze, freezeCol).Text || "";
+                        if (nextHeader.indexOf("材质") !== -1 || nextHeader.indexOf("厚度") !== -1) {
+                            freezeCol = nameCol + 2;
+                        }
+
+                        if (opts.autoFilter) {
+                            sheet.AutoFilterMode = false;
+                            sheet.Rows.Item(headerRowForFreeze + ":" + headerRowForFreeze).AutoFilter();
+                        }
+
+                        if (opts.freezeHeader) {
+                            app.ActiveWindow.FreezePanes = false;
+                            // 在表头的下一行进行冻结
+                            sheet.Cells.Item(headerRowForFreeze + 1, freezeCol).Select();
+                            app.ActiveWindow.FreezePanes = true;
+                        }
+                    }
                 }
-                alert(scopeAll ? "整个工作簿清洗完毕！" : "当前表清洗完毕！");
-            } catch(e) {
-                alert("执行出错，错误代码：" + e.message);
+
+                // 恢复环境，强制刷新
+                originalActiveSheet.Activate();
+                app.Calculation = oldCalc;
+                app.EnableEvents = true;
+                app.ScreenUpdating = true;
+                originalActiveSheet.Cells.Item(1, 1).Select();
+
+                alert("⚡ 闪电数组引擎处理完毕！各种复杂表型已完美适配！");
+
+            } catch (err) {
+                app.Calculation = oldCalc;
+                app.EnableEvents = true;
+                app.ScreenUpdating = true;
+                alert("执行过程中出错：" + err.message);
             }
         }
     </script>
 </body>
+
 </html>

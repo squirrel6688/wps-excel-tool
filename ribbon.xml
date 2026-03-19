@@ -16,7 +16,7 @@
                 <group id="groupGtj" label="格式处理">
                     <button id="btnCleanGtj" label="GTJ报表清洗" getImage="GetImage" onAction="OnAction" size="large" />
                     <button id="btnCleanFormat" label="去底色+11号字" getImage="GetImage" onAction="OnAction" size="large" />
-                    <button id="btnFormatTool" label="格式清洗弹窗" getImage="GetImage" onAction="OnAction" size="large" /> 
+                    <button id="btnFormatTool" label="优化工程量表" getImage="GetImage" onAction="OnAction" size="large" /> 
                     <button id="btnToggleZero" label="显示/隐藏0值" getImage="GetImage" onAction="OnAction" size="large" />
                     <separator id="sep1" /> 
                 </group>

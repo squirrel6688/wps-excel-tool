@@ -31,39 +31,33 @@ function OnAction(control) {
 // 【弹窗功能区】
 // ==========================================
 
-// 弹出：数据透视表对话框
 function DoShowPivotDialog() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/pivot.html";
     wps.ShowDialog(htmlUrl, "数据透视与汇总", 350, 380, false);
 }
 
-// 弹出：格式清洗对话框 
 function DoShowFormatDialog() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/format.html";
-    wps.ShowDialog(htmlUrl, "高级格式清洗", 350, 220, false);
+    wps.ShowDialog(htmlUrl, "优化工程量表", 350, 500, false);
 }
 
-// 弹出：录入计算公式对话框
 function DoShowCalcDialog() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/calc.html";
     wps.ShowDialog(htmlUrl, "录入计算公式", 520, 200, false);
 }
 
-// 弹出：关于与风险提示对话框
 function DoShowAboutDialog() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/about.html";
     wps.ShowDialog(htmlUrl, "关于量效助手", 400, 280, false);
 }
 
-// 弹出：使用说明对话框
 function DoShowGuide() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/guide.html";
-    // 界面稍微大一点，方便阅读说明文字
     wps.ShowDialog(htmlUrl, "量效助手 - 使用说明", 500, 480, false);
 }
 
@@ -71,81 +65,89 @@ function DoShowGuide() {
 // 【特殊操作功能区】
 // ==========================================
 
-// 动作：弹出左侧【公式追踪】任务窗格 (侧边栏)
 function DoShowTraceDialog() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/trace.html";
 
-    // 检查侧边栏是否已经创建过
     let tpId = wps.PluginStorage.getItem("trace_taskpane_id");
     let tp = tpId ? wps.GetTaskPane(tpId) : null;
 
     if (!tp) {
-        // 创建新的侧边栏
         tp = wps.CreateTaskPane(htmlUrl, "公式追踪");
         if (tp) {
             wps.PluginStorage.setItem("trace_taskpane_id", tp.ID);
-            tp.DockPosition = 0; // 停靠在左侧
-            tp.Width = 200;      // 允许的极限最小宽度
+            tp.DockPosition = 0;
+            tp.Width = 200;
         }
     }
-    if (tp) tp.Visible = true; // 显示出来
+    if (tp) tp.Visible = true;
 }
 
-// 动作：一键复制分享链接到剪贴板
 function DoShowShare() {
-    // 你的 GitHub 在线安装地址
     const shareUrl = "https://squirrel6688.github.io/wps-excel-tool/publish.html";
-
     try {
         let textArea = document.createElement("textarea");
         textArea.value = "推荐你使用【量效助手】WPS插件，提升算量效率！\n安装地址：" + shareUrl;
         document.body.appendChild(textArea);
         textArea.select();
-        document.execCommand("copy"); // 执行系统复制命令
+        document.execCommand("copy");
         document.body.removeChild(textArea);
-
         alert("🎉 复制成功！\n\n插件安装链接已复制到剪贴板，快去微信粘贴发送给好友吧！");
     } catch (e) {
         alert("复制失败，请手动分享网址：" + shareUrl);
     }
 }
 
-// 动作：联系作者 (后期预留位置)
 function DoShowContact() {
     alert("👨‍💻 作者正在日夜奋战开发新功能中...\n如需定制或反馈问题，此通道将在后续版本开放，敬请期待！");
 }
 
 // ==========================================
-// 【底层数据处理执行区】 (原封不动保留)
+// 【底层数据处理执行区】 
 // ==========================================
 
-// 极速去底色 + 清空格转数值
+// 🚨 升级版：极速去底色 + 智能清空格转数值 (防止误伤文字和符号)
 function DoCleanDataAndFormat() {
     const app = wps.Application;
     const sheet = app.ActiveSheet;
     if (!sheet) return;
+
     let targetRange = (app.Selection && app.Selection.Count > 1) ? app.Selection : sheet.UsedRange;
     if (!targetRange) return;
+
+    // 1. 去除所有底色
     targetRange.Interior.ColorIndex = 0;
+
+    // 2. 遍历数据处理空格
     for (let i = 1; i <= targetRange.Areas.Count; i++) {
         let area = targetRange.Areas.Item(i);
+
+        // 如果只选中了一个单元格
         if (area.Count === 1) {
             let val = area.Value2;
             if (typeof val === 'string') {
-                let cleanVal = val.replace(/\s+/g, '');
-                area.Value2 = (!isNaN(cleanVal) && cleanVal !== '') ? Number(cleanVal) : cleanVal;
+                let cleanVal = val.replace(/\s+/g, ''); // 尝试去掉空格
+                // 核心逻辑：只有去掉空格后它是个“纯数字”，才转换！否则原封不动保留！
+                if (!isNaN(cleanVal) && cleanVal !== '') {
+                    area.Value2 = Number(cleanVal);
+                }
             }
             continue;
         }
+
+        // 如果是批量区域
         let dataArr = area.Value2;
         if (!dataArr) continue;
+
         for (let r = 0; r < dataArr.length; r++) {
             for (let c = 0; c < dataArr[r].length; c++) {
                 let val = dataArr[r][c];
                 if (typeof val === 'string') {
                     let cleanVal = val.replace(/\s+/g, '');
-                    dataArr[r][c] = (!isNaN(cleanVal) && cleanVal !== '') ? Number(cleanVal) : cleanVal;
+                    // 核心逻辑：遇到文字或符号，依然保留原状不误伤
+                    if (!isNaN(cleanVal) && cleanVal !== '') {
+                        dataArr[r][c] = Number(cleanVal);
+                    }
                 }
             }
         }
@@ -153,13 +155,11 @@ function DoCleanDataAndFormat() {
     }
 }
 
-// 显示/隐藏0值
 function DoToggleZero() {
     const app = wps.Application;
     try { app.ActiveWindow.DisplayZeros = !app.ActiveWindow.DisplayZeros; } catch (e) { }
 }
 
-// 去底色 + 11号字
 function DoCleanStyle() {
     const app = wps.Application;
     const xlNone = -4142;
@@ -169,7 +169,6 @@ function DoCleanStyle() {
     rng.Font.Size = 11;
 }
 
-// 复制拼接ID
 function DoCopySimple() {
     const app = wps.Application;
     const sel = app.Selection;
@@ -207,13 +206,9 @@ function OnAddinLoad(ribbonUI) { }
 function OnGetVisible(control) { return true; }
 function OnGetLabel(control) { return ""; }
 
-// ==========================================
-// 图标分发器：专门负责给界面的按钮派发图片
-// ==========================================
 function GetImage(control) {
     const eleId = control.Id;
     switch (eleId) {
-        // 主面板功能图标
         case "btnCleanGtj": return "images/clean_data.png";
         case "btnCopyID": return "images/copy_id.png";
         case "btnCleanFormat": return "images/clean_style.png";
@@ -221,9 +216,8 @@ function GetImage(control) {
         case "btnCalcFormula": return "images/calc.png";
         case "btnTraceRef": return "images/trace.png";
         case "btnFormatTool": return "images/clean_style.png";
-        case "btnPivotSummary": return "images/pivot.png"; // 这里改成了你自带的图标
+        case "btnPivotSummary": return "images/pivot.png";
 
-        // 用户下拉菜单图标 (复用现有图标进行示意)
         case "menuUser": return "images/custom.png";
         case "btnAbout": return "images/clean_data.png";
         case "btnShare": return "images/copy_id.png";
