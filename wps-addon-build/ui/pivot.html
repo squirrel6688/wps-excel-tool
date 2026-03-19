@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>数据透析与汇总</title>
+    <style>
+        /* 极致紧凑排版 */
+        body {
+            font-family: "Microsoft YaHei";
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            color: #333;
+            font-size: 12px;
+        }
+
+        .section {
+            background: white;
+            padding: 8px 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px;
+        }
+
+        .title {
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .floor-container {
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 4px 0;
+        }
+
+        .floor-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 4px;
+        }
+
+        .floor-item:hover {
+            background-color: #e3f2fd;
+        }
+
+        input[type="checkbox"] {
+            margin: 0 6px 0 0;
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 6px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            color: white;
+        }
+
+        .btn-exec {
+            background-color: #28a745;
+        }
+
+        .btn-exec:hover {
+            background-color: #218838;
+        }
+
+        .status {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+        }
+
+        .link-btn {
+            color: #007bff;
+            cursor: pointer;
+            text-decoration: underline;
+            font-weight: normal;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="section">
+        <div class="title">
+            <span>📌 请勾选需要透析的楼层</span>
+            <span class="link-btn" onclick="toggleSelectAll()">全选/反选</span>
+        </div>
+        <div class="floor-container" id="floorList">
+            <div style="color:#999; text-align:center; padding: 10px;">正在扫描表格数据...</div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-exec" onclick="generatePivot()">🚀 生成公式溯源汇总表</button>
+    </div>
+
+    <div class="status" id="statusMsg">提示：提取明细并保留公式 (例如 =D5+D6) 方便复核。</div>
+
+    <script>
+        let rawData = [];
+        let headerRows = 2;
+
+        window.onload = function () {
+            loadFloors();
+        };
+
+        function loadFloors() {
+            const app = wps.Application;
+            const sheet = app.ActiveSheet;
+
+            if (!sheet || !sheet.UsedRange) {
+                document.getElementById("floorList").innerHTML = "表格为空！";
+                return;
+            }
+
+            rawData = sheet.UsedRange.Value2;
+            if (!rawData || rawData.length <= headerRows) return;
+
+            let floorSet = new Set();
+            let currentFloor = "";
+
+            for (let i = headerRows; i < rawData.length; i++) {
+                let row = rawData[i];
+                let floorVal = row[0];
+                let nameVal = row[1];
+
+                if (floorVal !== null && floorVal !== undefined && String(floorVal).trim() !== "") {
+                    currentFloor = String(floorVal).trim();
+                }
+
+                let isSubtotal = (String(nameVal).indexOf("合计") !== -1) || (String(nameVal).indexOf("小计") !== -1);
+                if (currentFloor !== "" && !isSubtotal) {
+                    floorSet.add(currentFloor);
+                }
+            }
+
+            let listDiv = document.getElementById("floorList");
+            listDiv.innerHTML = "";
+            if (floorSet.size === 0) return;
+
+            floorSet.forEach(floor => {
+                listDiv.insertAdjacentHTML('beforeend', `<label class="floor-item"><input type="checkbox" class="chk-floor" value="${floor}" checked> ${floor}</label>`);
+            });
+            document.getElementById("statusMsg").innerText = `雷达扫描完毕，共发现 ${floorSet.size} 个独立楼层。`;
+        }
+
+        function toggleSelectAll() {
+            let chks = document.querySelectorAll('.chk-floor');
+            if (chks.length === 0) return;
+            let allChecked = Array.from(chks).every(c => c.checked);
+            chks.forEach(c => c.checked = !allChecked);
+        }
+
+        // 辅助工具：数字转字母 (1 -> A, 2 -> B)
+        function getColumnLetter(colIndex) {
+            let temp, letter = '';
+            while (colIndex > 0) {
+                temp = (colIndex - 1) % 26;
+                letter = String.fromCharCode(temp + 65) + letter;
+                colIndex = (colIndex - temp - 1) / 26;
+            }
+            return letter;
+        }
+
+        // 🚀 核心大招：生成带有公式链接、排版完美的汇总表
+        function generatePivot() {
+            const app = wps.Application;
+            const sheet = app.ActiveSheet;
+
+            let checkedFloors = [];
+            document.querySelectorAll('.chk-floor:checked').forEach(cb => checkedFloors.push(cb.value));
+            if (checkedFloors.length === 0) { alert("请选择楼层！"); return; }
+
+            let startRow = sheet.UsedRange.Row;
+            let startCol = sheet.UsedRange.Column;
+            let safeOrigName = "'" + sheet.Name + "'";
+
+            let grouped = new Map();
+            let currentA = "", currentB = "", currentC = "";
+
+            // ================= 1. 内存级拆分填充 & 分组提取 =================
+            for (let i = headerRows; i < rawData.length; i++) {
+                let row = rawData[i];
+                let valA = row[0];
+                let valB = row[1];
+                let valC = row[2];
+
+                if (valA !== null && valA !== undefined && String(valA).trim() !== "") currentA = String(valA).trim();
+                if (valB !== null && valB !== undefined && String(valB).trim() !== "") currentB = String(valB).trim();
+                if (valC !== null && valC !== undefined && String(valC).trim() !== "") currentC = String(valC).trim();
+
+                let isSubtotal = (String(valB).indexOf("合计") !== -1) || (String(valB).indexOf("小计") !== -1) || (String(valC).indexOf("小计") !== -1) || (String(valA).indexOf("小计") !== -1);
+
+                if (!isSubtotal && checkedFloors.includes(currentA)) {
+                    let cleanB = currentB.replace(/\[.*?\]/g, '').replace(/【.*?】/g, '').replace(/［.*?］/g, '').trim();
+                    let key = cleanB + "|||" + currentC;
+                    if (!grouped.has(key)) {
+                        grouped.set(key, { name: cleanB, material: currentC, rowIndices: [] });
+                    }
+                    grouped.get(key).rowIndices.push(startRow + i);
+                }
+            }
+
+            // ================= 2. 组装结果与链接公式 =================
+            let resultData = [];
+
+            let floorText = checkedFloors.length > 2 ? checkedFloors.slice(0, 2).join(",") + "等" : checkedFloors.join(",");
+
+            for (let [key, group] of grouped) {
+                let newRow = new Array(rawData[0].length).fill("");
+                newRow[0] = floorText;
+                newRow[1] = group.name;
+                newRow[2] = group.material;
+
+                for (let c = 3; c < rawData[0].length; c++) {
+                    let colLetter = getColumnLetter(startCol + c);
+                    let formulaParts = [];
+
+                    for (let rIdx of group.rowIndices) {
+                        let cellVal = Number(rawData[rIdx - startRow][c]);
+                        if (!isNaN(cellVal) && cellVal !== 0) {
+                            formulaParts.push(safeOrigName + "!" + colLetter + rIdx);
+                        }
+                    }
+
+                    if (formulaParts.length > 0) {
+                        newRow[c] = "=" + formulaParts.join("+");
+                    } else {
+                        newRow[c] = 0;
+                    }
+                }
+                resultData.push(newRow);
+            }
+
+            // ================= 3. 底部求和总计 =================
+            let totalRow = new Array(rawData[0].length).fill("");
+            totalRow[0] = "透析总计";
+            totalRow[1] = `共汇总 ${checkedFloors.length} 个楼层`;
+
+            let lastDataRowIdx = headerRows + resultData.length + 1;
+
+            for (let c = 3; c < totalRow.length; c++) {
+                let colLetter = getColumnLetter(startCol + c);
+                totalRow[c] = `=SUM(${colLetter}${headerRows + 1}:${colLetter}${lastDataRowIdx - 1})`;
+            }
+            resultData.push(totalRow);
+
+            // ================= 4. 输出与像素级完美排版 =================
+            try {
+                let newSheet = app.Worksheets.Add();
+                newSheet.Name = "算量透析_" + Math.floor(Math.random() * 1000);
+
+                // 🚨 神技1：完美复制表头格式，之后对表头“只字不改”，绝不污染边框！
+                sheet.Range("1:" + headerRows).Copy(newSheet.Range("A1"));
+
+                // 写入数据区域
+                let dataStartRow = headerRows + 1;
+                let targetRange = newSheet.Range("A" + dataStartRow).Resize(resultData.length, resultData[0].length);
+                targetRange.Formula = resultData;
+
+                // 🚨 神技2：仅对新生成的数据区设置居中与换行
+                targetRange.HorizontalAlignment = -4108; // 居中
+                targetRange.VerticalAlignment = -4108;   // 居中
+                targetRange.WrapText = true;             // 自动换行
+
+                // 🚨 神技3：仅对新生成的数据区画最普通的细实线边框 (LineStyle=1, Weight=2)
+                targetRange.Borders.LineStyle = 1;
+                targetRange.Borders.Weight = 2; // xlThin，绝对不加粗！
+
+                // 底部合计行特殊标黄加粗
+                let lastRowStr = lastDataRowIdx + ":" + lastDataRowIdx;
+                newSheet.Range(lastRowStr).Font.Bold = true;
+                newSheet.Range(lastRowStr).Interior.Color = 65535;
+
+                // 🚨 神技4：严格锁定尺寸要求！（完美兼容 WPS JS）
+                // 1. 设置第2行行高为 59
+                newSheet.Range("2:2").RowHeight = 59;
+
+                // 2. 第一列之后（B列一直到最后一列），全部设为9个字符宽
+                let endColLetter = getColumnLetter(rawData[0].length);
+                newSheet.Range("B:" + endColLetter).ColumnWidth = 9;
+
+                // 3. 仅对 A 列开启自动适应列宽，防止文字被遮挡
+                newSheet.Range("A:A").EntireColumn.AutoFit();
+
+                alert("🎉 生成完毕！行高 59、列宽 9，原表头格式已完美保护！");
+            } catch (e) {
+                alert("生成失败，错误信息：" + e.message);
+            }
+
+        }
+    </script>
+</body>
+
+</html>
