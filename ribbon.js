@@ -110,12 +110,14 @@ function DoShowContact() {
 function DoCleanDataAndFormat() {
     const app = wps.Application;
     const sheet = app.ActiveSheet;
+    if (!sheet) return;
 
-
-    
-    // 获取当前工作表中所有“有内容的区域”，替代之前的用户手动选中区域
+    // 获取当前工作表中所有“有内容的区域”
     const area = sheet.UsedRange;
     if (!area) return;
+
+    // 🚨 恢复你的神级功能：一键去除所有有内容区域的底色
+    area.Interior.ColorIndex = 0;
 
     // 获取区域内的所有数据
     let dataArr = area.Value2;
@@ -127,7 +129,7 @@ function DoCleanDataAndFormat() {
         dataArr = [[dataArr]];
     }
 
-    // 遍历所有数据
+    // 遍历所有数据清洗空字符
     for (let r = 0; r < dataArr.length; r++) {
         for (let c = 0; c < dataArr[r].length; c++) {
             let val = dataArr[r][c];
@@ -136,17 +138,14 @@ function DoCleanDataAndFormat() {
             if (typeof val === 'string') {
                 
                 // 核心逻辑 1：判断是否“单纯只有空字符”（包括空格、换行、零宽字符等）
-                // 如果全是空字符，则将其完全清空为 null，彻底消除左上角的绿三角提示
                 if (/^[\s\u00A0\u200B]*$/.test(val)) {
-                    dataArr[r][c] = null; 
+                    dataArr[r][c] = null; // 彻底清空，消除绿三角
                 } else {
-                    // 核心逻辑 2：如果单元格内包含其他文字或符号，绝对不误伤里面的空格
-                    // 但如果去掉空格后发现它是“纯数字”（比如 " 123 "），则将其转换为真正的数字类型
+                    // 核心逻辑 2：如果包含文字，不误伤文字里的空格，但如果是带空格的纯数字则转换
                     let cleanVal = val.replace(/[\s\u00A0\u200B]+/g, '');
                     if (!isNaN(cleanVal) && cleanVal !== '') {
                         dataArr[r][c] = Number(cleanVal);
                     }
-                    // 注意：如果是正常的普通文本（包含空格的文字），这里不会做任何处理，原样保留！
                 }
             }
         }
@@ -159,6 +158,8 @@ function DoCleanDataAndFormat() {
         area.Value2 = dataArr;
     }
 }
+
+
 
 function DoToggleZero() {
     const app = wps.Application;
