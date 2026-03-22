@@ -40,7 +40,7 @@ function DoShowPivotDialog() {
 function DoShowFormatDialog() {
     let basePath = location.href.substring(0, location.href.lastIndexOf("/"));
     let htmlUrl = basePath + "/ui/format.html";
-    wps.ShowDialog(htmlUrl, "优化工程量表", 350, 500, false);
+    wps.ShowDialog(htmlUrl, "优化工程量表", 320, 580, false);
 }
 
 function DoShowCalcDialog() {
@@ -112,48 +112,54 @@ function DoCleanDataAndFormat() {
     const sheet = app.ActiveSheet;
     if (!sheet) return;
 
-    let targetRange = (app.Selection && app.Selection.Count > 1) ? app.Selection : sheet.UsedRange;
-    if (!targetRange) return;
+    // 获取当前工作表中所有“有内容的区域”
+    const area = sheet.UsedRange;
+    if (!area) return;
 
-    // 1. 去除所有底色
-    targetRange.Interior.ColorIndex = 0;
+    // 🚨 恢复你的神级功能：一键去除所有有内容区域的底色
+    area.Interior.ColorIndex = 0;
 
-    // 2. 遍历数据处理空格
-    for (let i = 1; i <= targetRange.Areas.Count; i++) {
-        let area = targetRange.Areas.Item(i);
+    // 获取区域内的所有数据
+    let dataArr = area.Value2;
+    if (dataArr == null) return;
 
-        // 如果只选中了一个单元格
-        if (area.Count === 1) {
-            let val = area.Value2;
+    // 兼容处理：如果整个表格只有一个单元格有内容，Value2 返回的是基础值而不是数组
+    let isSingleCell = !Array.isArray(dataArr);
+    if (isSingleCell) {
+        dataArr = [[dataArr]];
+    }
+
+    // 遍历所有数据清洗空字符
+    for (let r = 0; r < dataArr.length; r++) {
+        for (let c = 0; c < dataArr[r].length; c++) {
+            let val = dataArr[r][c];
+            
+            // 只有当单元格内容是文本类型时，才进行清洗判断
             if (typeof val === 'string') {
-                let cleanVal = val.replace(/\s+/g, ''); // 尝试去掉空格
-                // 核心逻辑：只有去掉空格后它是个“纯数字”，才转换！否则原封不动保留！
-                if (!isNaN(cleanVal) && cleanVal !== '') {
-                    area.Value2 = Number(cleanVal);
-                }
-            }
-            continue;
-        }
-
-        // 如果是批量区域
-        let dataArr = area.Value2;
-        if (!dataArr) continue;
-
-        for (let r = 0; r < dataArr.length; r++) {
-            for (let c = 0; c < dataArr[r].length; c++) {
-                let val = dataArr[r][c];
-                if (typeof val === 'string') {
-                    let cleanVal = val.replace(/\s+/g, '');
-                    // 核心逻辑：遇到文字或符号，依然保留原状不误伤
+                
+                // 核心逻辑 1：判断是否“单纯只有空字符”（包括空格、换行、零宽字符等）
+                if (/^[\s\u00A0\u200B]*$/.test(val)) {
+                    dataArr[r][c] = null; // 彻底清空，消除绿三角
+                } else {
+                    // 核心逻辑 2：如果包含文字，不误伤文字里的空格，但如果是带空格的纯数字则转换
+                    let cleanVal = val.replace(/[\s\u00A0\u200B]+/g, '');
                     if (!isNaN(cleanVal) && cleanVal !== '') {
                         dataArr[r][c] = Number(cleanVal);
                     }
                 }
             }
         }
+    }
+
+    // 将清洗后的干净数据，一次性写回工作表
+    if (isSingleCell) {
+        area.Value2 = dataArr[0][0];
+    } else {
         area.Value2 = dataArr;
     }
 }
+
+
 
 function DoToggleZero() {
     const app = wps.Application;

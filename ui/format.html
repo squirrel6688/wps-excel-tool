@@ -109,6 +109,10 @@
             text-decoration: underline;
             cursor: pointer;
         }
+
+        .sub-option.disabled {
+            color: #aaa;
+        }
     </style>
 </head>
 
@@ -126,8 +130,9 @@
             <label><input type="checkbox" id="chkValignCenter" class="chk-basic"> 垂直居中</label>
             <label><input type="checkbox" id="chkAutoFilter" class="chk-basic"> 开启自动筛选</label>
             <label><input type="checkbox" id="chkFreezeHeader" class="chk-basic"> 智能冻结表头</label>
-            <label style="grid-column: span 2; color: #d93025; font-weight: bold;">
-                <input type="checkbox" id="chkStandardLayout" class="chk-basic"> 应用工程排版 (动态识别行高宽,防死板)
+            <label><input type="checkbox" id="chkToggleZero" class="chk-basic"> 隐藏 0 值</label>
+            <label style="color: #d93025; font-weight: bold;">
+                <input type="checkbox" id="chkStandardLayout" class="chk-basic"> 墙面表格格式调整
             </label>
         </div>
     </div>
@@ -139,11 +144,15 @@
         </div>
         <div class="panel-content" id="group-adv">
             <label><input type="checkbox" id="chkSimplifyName" class="chk-adv"> 简化工作表名称</label>
-            <label><input type="checkbox" id="chkSplitFill" class="chk-adv"> 拆分单元格并填充</label>
             <label><input type="checkbox" id="chkTextToNum" class="chk-adv"> 文本转数字</label>
             <label><input type="checkbox" id="chkCleanSubtotal" class="chk-adv"> 清理小计行</label>
             <label><input type="checkbox" id="chkCleanTotal" class="chk-adv"> 清理合计行</label>
-            <label><input type="checkbox" id="chkCleanRoom" class="chk-adv"> 清理房间名称</label>
+            <label style="grid-column: span 2;"><input type="checkbox" id="chkCleanRoom" class="chk-adv"> 清理房间名称</label>
+            
+            <label style="grid-column: span 2;"><input type="checkbox" id="chkSplitFill" class="chk-adv" onchange="handleSplitFillChange()"> 拆分单元格并填充</label>
+            <label id="lblCleanFirstRow" class="sub-option disabled" style="grid-column: span 2; margin-left: 22px;">
+                <input type="checkbox" id="chkCleanFirstRow" class="chk-adv" disabled> 清理表头首行
+            </label>
         </div>
     </div>
 
@@ -156,21 +165,42 @@
     </div>
 
     <div class="note-box">
-        💡 <b>底层内存数组提速引擎已激活！</b><br>
-        本界面功能仅针对<b>【广联达 GTJ 土建装修表】</b>生效，系统会自动规避不相关的表格。
+        💡 <b>【核心提示】</b><br>
+        本页面功能主要适配 <b>广联达 GTJ 土建算量软件</b> 导出的装修构件表专属优化，仅针对该类表格设计。若用于其他类型表格，可能出现格式错乱或数据异常等问题，建议谨慎使用。
     </div>
 
     <div class="btn-group">
-        <button class="btn btn-exec" onclick="executeOptimize()">🚀 极速执行优化</button>
+        <button class="btn btn-exec" onclick="executeOptimize()">立即执行</button>
     </div>
 
     <script>
+        function handleSplitFillChange() {
+            let isChecked = document.getElementById('chkSplitFill').checked;
+            let subChk = document.getElementById('chkCleanFirstRow');
+            let subLbl = document.getElementById('lblCleanFirstRow');
+            
+            if (isChecked) {
+                subChk.disabled = false;
+                subLbl.classList.remove('disabled');
+            } else {
+                subChk.checked = false;
+                subChk.disabled = true;
+                subLbl.classList.add('disabled');
+            }
+        }
+
         function toggleChecks(groupName) {
             let className = groupName === 'basic' ? '.chk-basic' : '.chk-adv';
             let checkboxes = document.querySelectorAll(className);
             if (checkboxes.length === 0) return;
-            let allChecked = Array.from(checkboxes).every(c => c.checked);
-            checkboxes.forEach(c => c.checked = !allChecked);
+            
+            let enabledCheckboxes = Array.from(checkboxes).filter(c => !c.disabled);
+            if (enabledCheckboxes.length === 0) return;
+
+            let allChecked = enabledCheckboxes.every(c => c.checked);
+            enabledCheckboxes.forEach(c => c.checked = !allChecked);
+            
+            handleSplitFillChange(); 
         }
 
         window.onload = function () {
@@ -185,6 +215,7 @@
                     document.getElementById('chkAutoFilter').checked = config.autoFilter || false;
                     document.getElementById('chkFreezeHeader').checked = config.freezeHeader || false;
                     document.getElementById('chkStandardLayout').checked = config.standardLayout || false;
+                    document.getElementById('chkToggleZero').checked = config.toggleZero || false;
 
                     document.getElementById('chkSimplifyName').checked = config.simplifyName;
                     document.getElementById('chkSplitFill').checked = config.splitFill;
@@ -192,6 +223,11 @@
                     document.getElementById('chkCleanSubtotal').checked = config.cleanSubtotal;
                     document.getElementById('chkCleanTotal').checked = config.cleanTotal;
                     document.getElementById('chkCleanRoom').checked = config.cleanRoom;
+                    
+                    handleSplitFillChange(); 
+                    if(config.cleanFirstRow) {
+                        document.getElementById('chkCleanFirstRow').checked = true;
+                    }
 
                     let scopeRadios = document.getElementsByName('scope');
                     for (let r of scopeRadios) {
@@ -210,9 +246,11 @@
                 autoFilter: document.getElementById('chkAutoFilter').checked,
                 freezeHeader: document.getElementById('chkFreezeHeader').checked,
                 standardLayout: document.getElementById('chkStandardLayout').checked,
+                toggleZero: document.getElementById('chkToggleZero').checked,
 
                 simplifyName: document.getElementById('chkSimplifyName').checked,
                 splitFill: document.getElementById('chkSplitFill').checked,
+                cleanFirstRow: document.getElementById('chkCleanFirstRow').checked, 
                 textToNum: document.getElementById('chkTextToNum').checked,
                 cleanSubtotal: document.getElementById('chkCleanSubtotal').checked,
                 cleanTotal: document.getElementById('chkCleanTotal').checked,
@@ -222,110 +260,116 @@
 
             localStorage.setItem("gtj_format_config", JSON.stringify(opts));
 
-            const simplifiedKeywords = ["房间", "楼地面", "踢脚", "墙裙", "墙面", "天棚", "吊顶", "独立柱装修", "单梁装修"];
-
-            function isTargetGtjSheet(name) {
-                if (name.indexOf("绘图输入工程量汇总表") !== -1) return true;
-                if (simplifiedKeywords.includes(name)) return true;
-                return false;
-            }
-
             const app = wps.Application;
             let targetSheets = [];
             let originalActiveSheet = app.ActiveSheet;
 
             if (opts.scope === 'current') {
-                if (isTargetGtjSheet(originalActiveSheet.Name)) targetSheets.push(originalActiveSheet);
+                targetSheets.push(originalActiveSheet);
             } else {
                 for (let i = 1; i <= app.Worksheets.Count; i++) {
-                    if (isTargetGtjSheet(app.Worksheets.Item(i).Name)) targetSheets.push(app.Worksheets.Item(i));
+                    targetSheets.push(app.Worksheets.Item(i));
                 }
             }
 
-            if (targetSheets.length === 0) {
-                alert("⚠️ 未找到符合要求的 GTJ 工作表！");
-                return;
-            }
+            if (targetSheets.length === 0) return;
 
             app.ScreenUpdating = false;
             let oldCalc = app.Calculation;
-            app.Calculation = -4135;
+            app.Calculation = -4135; 
             app.EnableEvents = false;
 
             try {
                 for (let i = 0; i < targetSheets.length; i++) {
                     let sheet = targetSheets[i];
+                    sheet.Activate(); 
                     let uRange = sheet.UsedRange;
-                    if (!uRange || uRange.Rows.Count === 1) continue;
+                    
+                    if (!uRange || (uRange.Cells.Count === 1 && !uRange.Value2)) continue;
 
-                    // --- 1. 简化表名 ---
+                    if (opts.toggleZero) {
+                        try { app.ActiveWindow.DisplayZeros = false; } catch (e) {}
+                    }
+
                     if (opts.simplifyName) {
                         let oldName = sheet.Name;
                         let lastIndex = Math.max(oldName.lastIndexOf("_"), oldName.lastIndexOf("-"));
                         if (lastIndex !== -1) {
                             let newName = oldName.substring(lastIndex + 1);
                             if (newName !== oldName && newName.trim() !== "") {
-                                try { sheet.Name = newName; } catch (e) { }
+                                try { sheet.Name = newName; } catch (e) { } 
                             }
                         }
                     }
 
-                    // --- 2. 局部拆分单元格 ---
                     if (opts.splitFill && (uRange.MergeCells || uRange.MergeCells === null)) {
-                        let maxCol = Math.min(uRange.Columns.Count, 5);
+                        let maxCol = Math.min(uRange.Columns.Count, 6);
                         for (let r = uRange.Rows.Count; r >= 1; r--) {
                             for (let c = maxCol; c >= 1; c--) {
                                 let cell = sheet.Cells.Item(r, c);
                                 if (cell.MergeCells) {
                                     let mArea = cell.MergeArea;
-                                    let val = mArea.Cells.Item(1, 1).Value2;
-                                    mArea.UnMerge();
-                                    mArea.Value2 = val;
+                                    let val = mArea.Cells.Item(1, 1).Value2; 
+                                    mArea.UnMerge(); 
+                                    mArea.Value2 = val; 
                                 }
                             }
                         }
                     }
 
-                    // --- 3. 核心数组清理 ---
-                    let vals = uRange.Value2;
+                    if (opts.splitFill && opts.cleanFirstRow) {
+                        try {
+                            sheet.Rows.Item("1:1").Delete();
+                        } catch(e) {}
+                    }
+
+                    uRange = sheet.UsedRange;
+
+                    let dataArr = uRange.Value2;
                     let arrayChanged = false;
-                    let rowsToDelete = [];
+                    let rowsToDelete = []; 
                     let regex = /\[.*?\]|【.*?】|［.*?］/g;
 
-                    if (vals && vals.length > 0) {
-                        for (let r = 0; r < vals.length; r++) {
-                            let isSubtotalRow = false;
+                    if (dataArr != null) {
+                        let isSingleCell = !Array.isArray(dataArr);
+                        if (isSingleCell) dataArr = [[dataArr]];
 
-                            for (let c = 0; c < vals[r].length; c++) {
-                                let v = vals[r][c];
-                                if (typeof v === 'string') {
-                                    let originalV = v;
+                        for (let r = 0; r < dataArr.length; r++) {
+                            let isSubtotalRow = false; 
 
-                                    if (opts.cleanRoom && c < 6) v = v.replace(regex, '').trim();
+                            for (let c = 0; c < dataArr[r].length; c++) {
+                                let val = dataArr[r][c];
+                                if (typeof val === 'string') {
+                                    let originalVal = val;
+
+                                    if (opts.cleanRoom && c < 6) val = val.replace(regex, '').trim();
 
                                     if (opts.textToNum) {
-                                        let trimmed = v.trim();
-                                        if (trimmed !== '' && !isNaN(trimmed)) v = Number(trimmed);
+                                        let cleanVal = val.trim();
+                                        if (cleanVal !== '' && !isNaN(cleanVal)) val = Number(cleanVal);
                                     }
 
-                                    if (c < 3 && (opts.cleanSubtotal || opts.cleanTotal)) {
-                                        if (opts.cleanSubtotal && v.toString().indexOf("小计") !== -1) isSubtotalRow = true;
-                                        if (opts.cleanTotal && v.toString().indexOf("合计") !== -1) isSubtotalRow = true;
+                                    if (c < 4 && (opts.cleanSubtotal || opts.cleanTotal)) {
+                                        if (opts.cleanSubtotal && String(val).indexOf("小计") !== -1) isSubtotalRow = true;
+                                        if (opts.cleanTotal && String(val).indexOf("合计") !== -1) isSubtotalRow = true;
                                     }
 
-                                    if (v !== originalV) {
-                                        vals[r][c] = v;
+                                    if (val !== originalVal) {
+                                        dataArr[r][c] = val;
                                         arrayChanged = true;
                                     }
                                 }
                             }
+                            
                             if (isSubtotalRow) rowsToDelete.push(r + uRange.Row);
                         }
 
-                        if (arrayChanged) uRange.Value2 = vals;
+                        if (arrayChanged) {
+                            if (isSingleCell) uRange.Value2 = dataArr[0][0];
+                            else uRange.Value2 = dataArr;
+                        }
                     }
 
-                    // --- 4. 物理删行 ---
                     if (rowsToDelete.length > 0) {
                         for (let k = rowsToDelete.length - 1; k >= 0; k--) {
                             sheet.Rows.Item(rowsToDelete[k]).Delete();
@@ -333,100 +377,115 @@
                     }
 
                     uRange = sheet.UsedRange;
+                    let lastRow = uRange.Row + uRange.Rows.Count - 1;
+                    let lastCol = uRange.Column + uRange.Columns.Count - 1;
 
-                    // --- 5. 基础排版 ---
                     if (opts.removeColor) uRange.Interior.ColorIndex = 0;
                     if (opts.wrapText) uRange.WrapText = true;
                     if (opts.alignCenter) uRange.HorizontalAlignment = -4108;
                     if (opts.valignCenter) uRange.VerticalAlignment = -4108;
 
-                    // --- 6. 🚨 灵活自适应工程排版 (拒绝死板！) ---
-                    if (opts.standardLayout) {
-                        uRange.Font.Name = "宋体";
-                        uRange.Font.Size = 9;
-
-                        // 动态寻找表头行，而不是死守第二行
-                        let headerRow = 2;
-                        let lastCol = uRange.Column + uRange.Columns.Count - 1;
-                        for (let r = 1; r <= 3; r++) {
-                            let rowText = "";
-                            for (let c = 1; c <= 8; c++) { rowText += sheet.Cells.Item(r, c).Text || ""; }
-                            // 只要该行包含了这些词，大概率就是表头
-                            if (rowText.indexOf("名称") !== -1 || rowText.indexOf("材质") !== -1 || rowText.indexOf("面积") !== -1) {
-                                headerRow = r; break;
+                    let firstNumRow = -1;
+                    let firstNumCol = -1;
+                    
+                    let newDataArr = uRange.Value2;
+                    if (newDataArr != null) {
+                        let isSingleCell = !Array.isArray(newDataArr);
+                        let arr = isSingleCell ? [[newDataArr]] : newDataArr;
+                        
+                        for (let r = 0; r < arr.length; r++) {
+                            for (let c = 0; c < arr[r].length; c++) {
+                                let val = arr[r][c];
+                                if (val !== null && val !== "") {
+                                    let cleanVal = String(val).trim();
+                                    if (cleanVal !== '' && !isNaN(cleanVal)) {
+                                        firstNumRow = r + uRange.Row;
+                                        firstNumCol = c + uRange.Column;
+                                        break;
+                                    }
+                                }
                             }
-                        }
-
-                        let lastRow = uRange.Row + uRange.Rows.Count - 1;
-
-                        // 设行高
-                        sheet.Rows.Item(headerRow + ":" + headerRow).RowHeight = 59;
-                        if (lastRow > headerRow) {
-                            sheet.Rows.Item((headerRow + 1) + ":" + lastRow).RowHeight = 13;
-                        }
-
-                        // 智能判断每一列的宽度
-                        for (let c = 1; c <= lastCol; c++) {
-                            let headerText = sheet.Cells.Item(headerRow, c).Text || "";
-                            let headerTextAbove = headerRow > 1 ? (sheet.Cells.Item(headerRow - 1, c).Text || "") : "";
-                            let fullHeader = headerText + headerTextAbove;
-
-                            if (fullHeader.indexOf("楼层") !== -1 || fullHeader.indexOf("名称") !== -1) {
-                                sheet.Columns.Item(c).EntireColumn.AutoFit(); // 楼层、名称自适应
-                            } else if (fullHeader.indexOf("材质") !== -1 || fullHeader.indexOf("厚度") !== -1 || fullHeader.indexOf("保温") !== -1 || fullHeader.indexOf("工艺") !== -1) {
-                                sheet.Columns.Item(c).ColumnWidth = 7; // 属性词缩到7
-                            } else if (fullHeader !== "") {
-                                sheet.Columns.Item(c).ColumnWidth = 9; // 数据列统统为9
-                            }
+                            if (firstNumRow !== -1) break; 
                         }
                     }
 
-                    // --- 7. 智能冻结表头与筛选 ---
-                    if (opts.autoFilter || opts.freezeHeader) {
-                        sheet.Activate();
-
-                        let nameCol = 2;
-                        let headerRowForFreeze = 2;
-                        // 扫描寻找真实的基准坐标
-                        for (let r = 1; r <= 3; r++) {
-                            for (let c = 1; c <= 6; c++) {
-                                let t = sheet.Cells.Item(r, c).Text || "";
-                                if (t.indexOf("名称") !== -1) {
-                                    nameCol = c;
-                                    headerRowForFreeze = r;
+                    // ==========================================
+                    // 🌟 7. 墙面表格格式调整 (带智能墙面判定)
+                    // ==========================================
+                    if (opts.standardLayout && firstNumRow !== -1) {
+                        let headerRow = firstNumRow > 1 ? firstNumRow - 1 : 1;
+                        
+                        // 💡 新增：智能判定当前表是否为“墙面”相关的表格
+                        let isWallSheet = false;
+                        
+                        // 判定 1：看工作表名称本身是否含有“墙面”
+                        if (sheet.Name.indexOf("墙面") !== -1) {
+                            isWallSheet = true;
+                        } else {
+                            // 判定 2：看表头列（如墙面抹灰）是否含有“墙面”字眼
+                            for (let c = 1; c <= lastCol; c++) {
+                                let cellVal = sheet.Cells.Item(headerRow, c).Value2;
+                                if (cellVal && String(cellVal).indexOf("墙面") !== -1) {
+                                    isWallSheet = true;
+                                    break;
                                 }
                             }
                         }
 
-                        // 决定冻结的列位置
-                        let freezeCol = nameCol + 1;
-                        let nextHeader = sheet.Cells.Item(headerRowForFreeze, freezeCol).Text || "";
-                        if (nextHeader.indexOf("材质") !== -1 || nextHeader.indexOf("厚度") !== -1) {
-                            freezeCol = nameCol + 2;
+                        // 只有被判定为墙面表格，才执行以下的强力格式排版
+                        if (isWallSheet) {
+                            let nameCol = -1;
+
+                            for (let c = 1; c <= lastCol; c++) {
+                                let cellVal = sheet.Cells.Item(headerRow, c).Value2;
+                                let cellText = cellVal ? String(cellVal).replace(/\s/g, '') : "";
+                                if (cellText.indexOf("名称") !== -1) {
+                                    nameCol = c;
+                                    break;
+                                }
+                            }
+
+                            for (let c = 1; c <= lastCol; c++) {
+                                if (c < firstNumCol) sheet.Columns.Item(c).ColumnWidth = 5;
+                                else sheet.Columns.Item(c).ColumnWidth = 7;
+                            }
+
+                            if (nameCol !== -1) sheet.Columns.Item(nameCol).ColumnWidth = 10;
+
+                            sheet.Rows.Item(headerRow + ":" + headerRow).RowHeight = 60;
+
+                            if (lastRow >= firstNumRow) {
+                                sheet.Rows.Item(firstNumRow + ":" + lastRow).RowHeight = 16;
+                            }
+                        }
+                    }
+
+                    if ((opts.autoFilter || opts.freezeHeader) && firstNumRow !== -1 && firstNumCol !== -1) {
+                        if (opts.freezeHeader) {
+                            app.ActiveWindow.ScrollRow = 1;
+                            app.ActiveWindow.ScrollColumn = 1;
                         }
 
                         if (opts.autoFilter) {
                             sheet.AutoFilterMode = false;
-                            sheet.Rows.Item(headerRowForFreeze + ":" + headerRowForFreeze).AutoFilter();
+                            let targetFilterRow = firstNumRow > 1 ? firstNumRow - 1 : 1; 
+                            sheet.Rows.Item(targetFilterRow + ":" + targetFilterRow).AutoFilter();
                         }
 
                         if (opts.freezeHeader) {
                             app.ActiveWindow.FreezePanes = false;
-                            // 在表头的下一行进行冻结
-                            sheet.Cells.Item(headerRowForFreeze + 1, freezeCol).Select();
+                            sheet.Cells.Item(firstNumRow, firstNumCol).Select();
                             app.ActiveWindow.FreezePanes = true;
                         }
                     }
                 }
 
-                // 恢复环境，强制刷新
                 originalActiveSheet.Activate();
+                
                 app.Calculation = oldCalc;
                 app.EnableEvents = true;
                 app.ScreenUpdating = true;
-                originalActiveSheet.Cells.Item(1, 1).Select();
-
-                alert("⚡ 闪电数组引擎处理完毕！各种复杂表型已完美适配！");
+                alert("✅ 极速清理与排版执行完毕！");
 
             } catch (err) {
                 app.Calculation = oldCalc;
