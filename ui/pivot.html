@@ -5,7 +5,6 @@
     <meta charset="utf-8">
     <title>数据透视与汇总</title>
     <style>
-        /* 🚨 核心排版大改：采用 Flex 弹性布局，消灭双滚动条，全局防框选 */
         body {
             font-family: "Microsoft YaHei";
             margin: 0;
@@ -15,14 +14,11 @@
             font-size: 12px;
             user-select: none;
             -webkit-user-select: none;
-            /* 防框选 */
             overflow: hidden;
-            /* 彻底干掉外层双滚动条 */
             display: flex;
             flex-direction: column;
             height: 100vh;
             box-sizing: border-box;
-            /* Flex满屏布局 */
         }
 
         .section {
@@ -35,7 +31,6 @@
             flex-direction: column;
             flex: 1;
             min-height: 0;
-            /* 自动占据剩下的所有垂直空间 */
         }
 
         .title {
@@ -48,7 +43,6 @@
             display: flex;
             justify-content: space-between;
             flex-shrink: 0;
-            /* 标题不被压缩 */
         }
 
         .floor-container {
@@ -56,7 +50,6 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            /* 内部自动滚动！ */
         }
 
         .floor-item {
@@ -115,7 +108,6 @@
             cursor: pointer;
         }
 
-        /* 👇 底部这些全部设为 flex-shrink: 0，确保它们被死死钉在底部，永不被挤扁 */
         .mode-selector {
             display: flex;
             justify-content: space-between;
@@ -198,22 +190,35 @@
     </div>
 
     <div class="mode-selector">
-        <label title="最精细：同楼层+同材质 才合并"><input type="radio" name="mergeMode" value="mode1" checked> 墙材质分开计算</label>
-        <label title="中等：同楼层内无视材质强制合并"><input type="radio" name="mergeMode" value="mode2"> 墙材质合并计算</label>
-        <label title="最粗放：跨楼层同材质强制合并"><input type="radio" name="mergeMode" value="mode3"> 楼层合并计算</label>
+        <label title="最精细：自动按左侧所有文本进行分组"><input type="radio" name="mergeMode" value="mode1" checked> 墙材质分开计算</label>
+        <label title="预留模式扩展"><input type="radio" name="mergeMode" value="mode2" disabled> 预留模式</label>
     </div>
 
     <div class="btn-group">
-        <button class="btn btn-exec" onclick="generatePivot()">🚀 生成高级数据透视表</button>
+        <button class="btn btn-exec" onclick="generatePivot()">立即执行数据透视表</button>
     </div>
 
-    <div class="status" id="statusMsg">提示：工艺不同永远不会被合并，保证计价精准。</div>
+    <div class="status" id="statusMsg">提示：自动剔除尾部空列，带公式汇总及标准工程排版。</div>
 
     <script>
         let rawData = [];
-        let headerRows = 2;
+        let firstNumRow = -1;
+        let firstNumCol = -1;
+        let floorCol = 0; 
+        let nameCol = -1; 
+        let lastValidCol = -1; 
 
         window.onload = function () { loadFloors(); };
+
+        function getColumnLetter(colIndex) {
+            let temp, letter = '';
+            while (colIndex > 0) {
+                temp = (colIndex - 1) % 26;
+                letter = String.fromCharCode(temp + 65) + letter;
+                colIndex = (colIndex - temp - 1) / 26;
+            }
+            return letter;
+        }
 
         function loadFloors() {
             const app = wps.Application;
@@ -225,28 +230,71 @@
             }
 
             rawData = sheet.UsedRange.Value2;
-            if (!rawData || rawData.length <= headerRows) return;
+            if (!rawData) return;
+            if (!Array.isArray(rawData)) rawData = [[rawData]];
+
+            firstNumRow = -1;
+            firstNumCol = -1;
+            for (let r = 0; r < rawData.length; r++) {
+                for (let c = 0; c < rawData[r].length; c++) {
+                    let val = rawData[r][c];
+                    if (val !== null && val !== "") {
+                        let cleanVal = String(val).trim();
+                        if (cleanVal !== '' && !isNaN(cleanVal)) {
+                            firstNumRow = r;
+                            firstNumCol = c;
+                            break;
+                        }
+                    }
+                }
+                if (firstNumRow !== -1) break;
+            }
+
+            if (firstNumRow === -1) {
+                document.getElementById("floorList").innerHTML = "<div style='padding:10px; color:red;'>未检测到数字列，无法透视！</div>";
+                return;
+            }
+
+            let headerRow = firstNumRow > 0 ? firstNumRow - 1 : 0;
+            
+            for (let c = 0; c < firstNumCol; c++) {
+                let text = String(rawData[headerRow][c] || "").replace(/\s/g, '');
+                if (text.indexOf("楼层") !== -1) floorCol = c;
+                if (text.indexOf("名称") !== -1) nameCol = c;
+            }
+
+            lastValidCol = firstNumCol;
+            for (let c = firstNumCol; c < rawData[headerRow].length; c++) {
+                let hText = String(rawData[headerRow][c] || "").trim();
+                let dText = String(rawData[firstNumRow][c] || "").trim();
+                if (hText !== "" || dText !== "") {
+                    lastValidCol = c;
+                }
+            }
 
             let floorSet = new Set();
             let currentFloor = "";
 
-            for (let i = headerRows; i < rawData.length; i++) {
+            for (let i = firstNumRow; i < rawData.length; i++) {
                 let row = rawData[i];
-                let floorVal = row[0];
-                let nameVal = row[1];
-                let materialVal = row[2];
+                let floorVal = row[floorCol];
 
                 if (floorVal !== null && floorVal !== undefined && String(floorVal).trim() !== "") {
                     let fStr = String(floorVal).trim();
-                    if (fStr.indexOf("总计") === -1 && fStr.indexOf("合计") === -1 && fStr.indexOf("透视") === -1) {
+                    if (fStr.indexOf("小计") === -1 && fStr.indexOf("合计") === -1 && fStr.indexOf("透视") === -1) {
                         currentFloor = fStr;
                     } else {
                         currentFloor = "";
                     }
                 }
 
-                let isSubtotal = (String(nameVal).indexOf("合计") !== -1) || (String(nameVal).indexOf("小计") !== -1) ||
-                    (String(materialVal).indexOf("合计") !== -1) || (String(materialVal).indexOf("小计") !== -1);
+                let isSubtotal = false;
+                for(let c = 0; c < firstNumCol; c++) {
+                    let strVal = String(row[c] || "").trim();
+                    if(strVal.indexOf("合计") !== -1 || strVal.indexOf("小计") !== -1) {
+                        isSubtotal = true; break;
+                    }
+                }
 
                 if (currentFloor !== "" && !isSubtotal) {
                     floorSet.add(currentFloor);
@@ -255,7 +303,10 @@
 
             let listDiv = document.getElementById("floorList");
             listDiv.innerHTML = "";
-            if (floorSet.size === 0) return;
+            if (floorSet.size === 0) {
+                listDiv.innerHTML = "<div style='padding:10px; color:#666;'>未提取到有效楼层！</div>";
+                return;
+            }
 
             floorSet.forEach(floor => {
                 let html = `
@@ -273,7 +324,6 @@
                 `;
                 listDiv.insertAdjacentHTML('beforeend', html);
             });
-            document.getElementById("statusMsg").innerText = `共发现 ${floorSet.size} 个楼层，请配置层数与工艺。`;
         }
 
         function toggleSelectAll() {
@@ -283,206 +333,178 @@
             chks.forEach(c => c.checked = !allChecked);
         }
 
-        function getColumnLetter(colIndex) {
-            let temp, letter = '';
-            while (colIndex > 0) {
-                temp = (colIndex - 1) % 26;
-                letter = String.fromCharCode(temp + 65) + letter;
-                colIndex = (colIndex - temp - 1) / 26;
-            }
-            return letter;
-        }
-
         function generatePivot() {
-            const app = wps.Application;
-            const sheet = app.ActiveSheet;
-
-            let hasHidden = false;
-            try {
-                if (sheet.FilterMode) hasHidden = true;
-                let rHidden = sheet.UsedRange.Rows.Hidden;
-                let cHidden = sheet.UsedRange.Columns.Hidden;
-                if (rHidden === null || rHidden === true) hasHidden = true;
-                if (cHidden === null || cHidden === true) hasHidden = true;
-            } catch (e) { }
-
-            if (hasHidden) {
-                let msg = "⚠️ 警告：检测到当前表格存在【筛选】或【隐藏】的行列！\n\n" +
-                    "底层引擎扫描会无视隐藏，强制抓取所有数据进行汇总，这会导致汇总结果与你肉眼看到的不一致！\n\n" +
-                    "【强烈建议】：点击“取消”，回到表格清除筛选和隐藏后再来生成。\n\n" +
-                    "你确定要强行继续汇总吗？";
-                if (!confirm(msg)) return;
-            }
-
-            let checkedFloors = [];
-            let formworkMap = {};
-            let multMap = {};
-
-            document.querySelectorAll('.chk-floor:checked').forEach(cb => {
-                let fName = cb.value;
-                checkedFloors.push(fName);
-
-                let parentDiv = cb.closest('.floor-item');
-                let selFw = parentDiv.querySelector('.sel-formwork');
-                if (selFw) formworkMap[fName] = selFw.value;
-
-                let inputMult = parentDiv.querySelector('.sel-mult');
-                let multVal = parseInt(inputMult.value);
-                multMap[fName] = (!isNaN(multVal) && multVal > 0) ? multVal : 1;
+            let floorConfigs = {};
+            document.querySelectorAll('.floor-item').forEach(item => {
+                let chk = item.querySelector('.chk-floor');
+                if (chk && chk.checked) {
+                    let fname = chk.value;
+                    let mult = parseFloat(item.querySelector('.sel-mult').value) || 1;
+                    let formwork = item.querySelector('.sel-formwork').value;
+                    floorConfigs[fname] = { mult: mult, formwork: formwork };
+                }
             });
 
-            if (checkedFloors.length === 0) { alert("请选择楼层！"); return; }
+            if (Object.keys(floorConfigs).length === 0) {
+                alert("请至少勾选一个楼层！");
+                return;
+            }
 
-            let mergeMode = document.querySelector('input[name="mergeMode"]:checked').value;
+            let summary = {};
+            let currentFloor = "";
+            let numColsCount = lastValidCol - firstNumCol + 1; 
+            
+            const app = wps.Application;
+            let sheetNameSafe = "'" + app.ActiveSheet.Name + "'";
 
-            let startRow = sheet.UsedRange.Row;
-            let startCol = sheet.UsedRange.Column;
-            let safeOrigName = "'" + sheet.Name + "'";
-
-            let grouped = new Map();
-            let currentA = "", currentB = "", currentC = "";
-
-            for (let i = headerRows; i < rawData.length; i++) {
+            for (let i = firstNumRow; i < rawData.length; i++) {
                 let row = rawData[i];
-                let valA = row[0];
-                let valB = row[1];
-                let valC = row[2];
-
-                if (valA !== null && valA !== undefined && String(valA).trim() !== "") currentA = String(valA).trim();
-                if (valB !== null && valB !== undefined && String(valB).trim() !== "") currentB = String(valB).trim();
-                if (valC !== null && valC !== undefined && String(valC).trim() !== "") currentC = String(valC).trim();
-
-                let isSubtotal = (String(valB).indexOf("合计") !== -1) || (String(valB).indexOf("小计") !== -1) ||
-                    (String(valC).indexOf("合计") !== -1) || (String(valC).indexOf("小计") !== -1);
-
-                if (!isSubtotal && checkedFloors.includes(currentA)) {
-                    let cleanB = currentB.replace(/\[.*?\]/g, '').replace(/【.*?】/g, '').replace(/［.*?］/g, '').trim();
-                    let floorFormwork = formworkMap[currentA] || "未指定";
-
-                    let key = "";
-                    let displayFloor = currentA;
-                    let displayMaterial = currentC;
-
-                    if (mergeMode === "mode1") {
-                        key = currentA + "|||" + cleanB + "|||" + currentC + "|||" + floorFormwork;
-                    }
-                    else if (mergeMode === "mode2") {
-                        key = currentA + "|||" + cleanB + "|||MERGED_MAT|||" + floorFormwork;
-                        displayMaterial = "多材质合并";
-                    }
-                    else if (mergeMode === "mode3") {
-                        key = "MERGED_FLR|||" + cleanB + "|||" + currentC + "|||" + floorFormwork;
-                        displayFloor = "多楼层合并";
-                    }
-
-                    if (!grouped.has(key)) {
-                        grouped.set(key, {
-                            floor: displayFloor,
-                            name: cleanB,
-                            material: displayMaterial,
-                            formwork: floorFormwork,
-                            isBaowen: false,
-                            items: []
-                        });
-                    }
-
-                    let g = grouped.get(key);
-                    g.items.push({ rIdx: startRow + i, mult: multMap[currentA] });
-
-                    if (currentB.indexOf("保温") !== -1) {
-                        g.isBaowen = true;
-                    }
-                }
-            }
-
-            let resultData = [];
-
-            for (let [key, group] of grouped) {
-                let newRow = new Array(rawData[0].length + 2).fill("");
-
-                newRow[0] = group.floor;
-                newRow[1] = group.isBaowen ? "保温" : "";
-                newRow[2] = group.formwork !== "未指定" ? group.formwork : "";
-                newRow[3] = group.name;
-                newRow[4] = group.material;
-
-                for (let c = 3; c < rawData[0].length; c++) {
-                    let colLetter = getColumnLetter(startCol + c);
-                    let formulaParts = [];
-
-                    for (let item of group.items) {
-                        let cellVal = Number(rawData[item.rIdx - startRow][c]);
-                        if (!isNaN(cellVal) && cellVal !== 0) {
-                            if (item.mult > 1) {
-                                formulaParts.push(safeOrigName + "!" + colLetter + item.rIdx + "*" + item.mult);
-                            } else {
-                                formulaParts.push(safeOrigName + "!" + colLetter + item.rIdx);
-                            }
-                        }
-                    }
-
-                    if (formulaParts.length > 0) {
-                        newRow[c + 2] = "=" + formulaParts.join("+");
+                let fVal = row[floorCol];
+                
+                if (fVal !== null && fVal !== undefined && String(fVal).trim() !== "") {
+                    let fStr = String(fVal).trim();
+                    if (fStr.indexOf("小计") === -1 && fStr.indexOf("合计") === -1) {
+                        currentFloor = fStr;
                     } else {
-                        newRow[c + 2] = 0;
+                        currentFloor = "";
                     }
                 }
-                resultData.push(newRow);
+
+                if (!currentFloor || !floorConfigs[currentFloor]) continue; 
+
+                let isSubtotal = false;
+                let isEmpty = true;
+                for(let c = 0; c < firstNumCol; c++) {
+                    let strVal = String(row[c] || "").trim();
+                    if(strVal !== "") isEmpty = false;
+                    if(strVal.indexOf("合计") !== -1 || strVal.indexOf("小计") !== -1) {
+                        isSubtotal = true; break;
+                    }
+                }
+                if (isSubtotal || isEmpty) continue;
+
+                let config = floorConfigs[currentFloor];
+                let mult = config.mult;
+                let formwork = config.formwork;
+
+                let groupValues = [];
+                for(let c = 0; c < firstNumCol; c++) {
+                    groupValues.push(String(row[c] || "").trim());
+                }
+                
+                let key = groupValues.join("_|_") + "_|_" + formwork;
+
+                if (!summary[key]) {
+                    summary[key] = { 
+                        labels: groupValues,
+                        formwork: formwork,
+                        mult: mult,
+                        refs: Array.from({length: numColsCount}, () => []), 
+                        sums: new Array(numColsCount).fill(0) 
+                    };
+                }
+
+                for(let c = firstNumCol; c <= lastValidCol; c++) {
+                    let qty = parseFloat(row[c]);
+                    if (isNaN(qty)) qty = 0;
+                    summary[key].sums[c - firstNumCol] += qty;
+                    
+                    let cellAddr = sheetNameSafe + "!" + getColumnLetter(c + 1) + (i + 1);
+                    summary[key].refs[c - firstNumCol].push(cellAddr);
+                }
             }
 
-            let totalRow = new Array(rawData[0].length + 2).fill("");
-            totalRow[0] = "透视总计";
-            totalRow[3] = `共处理 ${checkedFloors.length} 个楼层`;
+            let headerRowIdx = firstNumRow > 0 ? firstNumRow - 1 : 0;
+            let originalHeaders = rawData[headerRowIdx] || [];
+            let safeNameCol = nameCol !== -1 ? nameCol : (firstNumCol > 0 ? firstNumCol - 1 : 0);
+            
+            let headers = [];
+            for(let c = 0; c < safeNameCol; c++) headers.push(originalHeaders[c] || `分类${c+1}`);
+            headers.push("保温");
+            headers.push("工艺");
+            for(let c = safeNameCol; c < firstNumCol; c++) headers.push(originalHeaders[c] || `分类${c+1}`);
+            
+            for(let c = firstNumCol; c <= lastValidCol; c++) headers.push(originalHeaders[c] || `数据${c-firstNumCol+1}`);
 
-            let lastDataRowIdx = headerRows + resultData.length + 1;
+            let outArr = [headers];
 
-            for (let c = 3; c < rawData[0].length; c++) {
-                let sumColLetter = getColumnLetter(startCol + c + 2);
-                totalRow[c + 2] = `=SUM(${sumColLetter}${headerRows + 1}:${sumColLetter}${lastDataRowIdx - 1})`;
+            for (let k in summary) {
+                let item = summary[k];
+                let outRow = outArr.length + 1; 
+                
+                let rowData = [];
+                for(let c = 0; c < safeNameCol; c++) rowData.push(item.labels[c]);
+                
+                let newNameColIdx = safeNameCol + 2; 
+                let nameCell = getColumnLetter(newNameColIdx + 1) + outRow; 
+                rowData.push(`=IF(ISNUMBER(FIND("保温",${nameCell})),"保温","")`);
+                rowData.push(item.formwork);
+                
+                for(let c = safeNameCol; c < firstNumCol; c++) rowData.push(item.labels[c]);
+                
+                for(let c = 0; c < item.refs.length; c++) {
+                    let refs = item.refs[c];
+                    if (refs.length > 0) {
+                        let formula = "=(" + refs.join("+") + ")";
+                        if (item.mult !== 1) formula += "*" + item.mult;
+                        
+                        if (formula.length > 8000) {
+                            formula = item.sums[c] * item.mult;
+                        }
+                        rowData.push(formula);
+                    } else {
+                        rowData.push(0);
+                    }
+                }
+                outArr.push(rowData);
             }
-            resultData.push(totalRow);
 
-            try {
-                let newSheet = app.Worksheets.Add();
-                newSheet.Name = "算量透视_" + Math.floor(Math.random() * 1000);
-
-                sheet.Range("1:" + headerRows).Copy(newSheet.Range("A1"));
-                newSheet.Range("B:C").EntireColumn.Insert();
-
-                newSheet.Range("B" + headerRows).Value2 = "保温";
-                newSheet.Range("C" + headerRows).Value2 = "模板工艺";
-
-                let dataStartRow = headerRows + 1;
-                let targetRange = newSheet.Range("A" + dataStartRow).Resize(resultData.length, rawData[0].length + 2);
-                targetRange.Formula = resultData;
-
-                let fullRange = newSheet.UsedRange;
-                fullRange.Font.Name = "宋体";
-                fullRange.Font.Size = 9;
-                fullRange.Interior.ColorIndex = 0;
-                fullRange.HorizontalAlignment = -4108;
-                fullRange.VerticalAlignment = -4108;
-                fullRange.WrapText = true;
-                fullRange.Borders.LineStyle = 1;
-                fullRange.Borders.Weight = 2;
-
-                newSheet.Range("2:2").AutoFilter();
-
-                let lastRowStr = lastDataRowIdx + ":" + lastDataRowIdx;
-                newSheet.Range(lastRowStr).Font.Bold = true;
-
-                newSheet.Range("2:2").RowHeight = 59;
-                newSheet.Range("3:" + lastDataRowIdx).RowHeight = 13;
-
-                let endColLetter = getColumnLetter(rawData[0].length + 2);
-                newSheet.Range("D:" + endColLetter).ColumnWidth = 9;
-                newSheet.Range("B:C").ColumnWidth = 7;
-                newSheet.Range("A:A").EntireColumn.AutoFit();
-
-                alert("🎉 高级透视生成完毕！");
-            } catch (e) {
-                alert("生成失败，错误信息：" + e.message);
+            if (outArr.length <= 1) {
+                alert("没有提取到符合条件的工程量数据！");
+                return;
             }
+
+            // ==========================================
+            // 生成表格并执行【高级排版】
+            // ==========================================
+            app.ScreenUpdating = false;
+            let newSheet = app.Worksheets.Add();
+            newSheet.Name = "带公式透视_" + Math.floor(Math.random() * 1000);
+            
+            let targetRange = newSheet.Range(newSheet.Cells.Item(1, 1), newSheet.Cells.Item(outArr.length, outArr[0].length));
+            targetRange.Formula = outArr; 
+            
+            // 🌟 1. 基础样式与尺寸
+            targetRange.Columns.ColumnWidth = 7;
+            newSheet.Rows.Item("1:1").RowHeight = 55;
+            if (outArr.length > 1) {
+                newSheet.Rows.Item("2:" + outArr.length).RowHeight = 16;
+            }
+
+            // 🌟 2. 核心：水平居中、垂直居中、自动换行
+            targetRange.HorizontalAlignment = -4108; // 水平居中
+            targetRange.VerticalAlignment = -4108;   // 垂直居中
+            targetRange.WrapText = true;             // 自动换行
+
+            let headerRange = newSheet.Range(newSheet.Cells.Item(1, 1), newSheet.Cells.Item(1, outArr[0].length));
+            headerRange.Interior.Color = 14277081; 
+            headerRange.Font.Bold = true;
+            
+            // 🌟 3. 激活首行自动筛选
+            newSheet.Activate();
+            app.ActiveWindow.ScrollRow = 1;
+            app.ActiveWindow.ScrollColumn = 1;
+            newSheet.AutoFilterMode = false;
+            newSheet.Rows.Item("1:1").AutoFilter();
+
+            // 🌟 4. 定位锚点冻结
+            let freezeCol = headers.length - numColsCount + 1;
+            app.ActiveWindow.FreezePanes = false;
+            newSheet.Cells.Item(2, freezeCol).Select();
+            app.ActiveWindow.FreezePanes = true;
+
+            app.ScreenUpdating = true;
+            window.close();
         }
     </script>
 </body>

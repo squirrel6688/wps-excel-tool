@@ -108,6 +108,12 @@
             font-weight: bold;
             color: #e53935;
             font-size: 12px;
+            cursor: pointer; /* 💡 改动1：鼠标移上去变成小手 */
+            text-decoration: underline; /* 💡 改动1：加下划线提示可点击 */
+        }
+        
+        .target-id:hover {
+            color: #c62828; /* 💡 改动1：移上去变深色 */
         }
 
         .table-container {
@@ -170,8 +176,9 @@
 
         .status {
             margin-top: 6px;
-            font-size: 10px;
-            color: #888;
+            font-size: 11px;
+            font-weight: bold;
+            color: #333; /* 加深了底部的文字颜色 */
             text-align: center;
             flex-shrink: 0;
         }
@@ -193,7 +200,7 @@
     </div>
 
     <div class="target-info">
-        当前分析对象：<span class="target-id" id="targetCell">无</span>
+        当前分析对象：<span class="target-id" id="targetCell" onclick="returnToOrigin()" title="点击返回母单元格">无</span>
     </div>
 
     <div class="table-container">
@@ -216,6 +223,13 @@
         let foundRange = null;
         let originSheetName = "";
         let originAddress = "";
+
+        // 💡 提取单元格真实数字的辅助函数（防止空值或纯文本报错）
+        function getSafeNumber(val) {
+            if (val === null || val === "" || typeof val === "boolean") return 0;
+            let n = Number(val);
+            return isNaN(n) ? 0 : n;
+        }
 
         window.onload = function () {
             refreshData();
@@ -247,6 +261,7 @@
             let isPrecedent = document.getElementById("typePrec").checked;
             let htmlStr = "";
             let count = 0;
+            let sum = 0; // 💡 改动3：增加一个求和容器
             let addedAddresses = new Set();
 
             try {
@@ -270,6 +285,8 @@
 
                         addedAddresses.add(currentSheetName + "!" + cellAddr.replace(/\$/g, ''));
                         htmlStr += renderRow(address, val, "");
+                        
+                        sum += getSafeNumber(cell.Value2); // 💡 累加当前单元格的值
                         count++;
                     }
                 }
@@ -291,6 +308,8 @@
                                 addedAddresses.add(refSh + "!" + refCellAddr);
                                 let refCell = app.Range(m);
                                 htmlStr += renderRow(m, refCell.Text || refCell.Value2 || "", "[跨表]");
+                                
+                                sum += getSafeNumber(refCell.Value2); // 💡 累加跨表单元格的值
                                 count++;
                             }
                         } catch (err) { }
@@ -332,6 +351,8 @@
                                             if (!addedAddresses.has(sh.Name + "!" + cellAddr.replace(/\$/g, ''))) {
                                                 addedAddresses.add(sh.Name + "!" + cellAddr.replace(/\$/g, ''));
                                                 htmlStr += renderRow(addr, cell.Text || cell.Value2 || "", "[跨表]");
+                                                
+                                                sum += getSafeNumber(cell.Value2); // 💡 累加跨表依赖单元格的值
                                                 count++;
                                             }
                                         }
@@ -344,7 +365,10 @@
             }
 
             tbody.innerHTML = htmlStr;
-            statusMsg.innerText = count === 0 ? "未找到关联单元格！" : `共发现 ${count} 个目标。`;
+            
+            // 💡 改动4：格式化输出结果，并解决 JS 浮点数精度问题 (比如 27.422000001 会被修剪为 27.422)
+            let displaySum = parseFloat(sum.toFixed(4)); 
+            statusMsg.innerText = count === 0 ? "未找到关联单元格！" : `计数=${count}个，求和=${displaySum}`;
         }
 
         function renderRow(address, val, tag) {
@@ -376,7 +400,7 @@
                 app.Worksheets.Item(originSheetName).Activate();
                 app.ActiveSheet.Range(originAddress).Select();
             } catch (e) {
-                alert("回城失败！可能是该工作表已被删除。");
+                alert("返回失败！可能是该工作表已被删除。");
             }
         }
 

@@ -317,6 +317,7 @@
                         }
                     }
 
+                    // 🌟 撤销了防重入逻辑，直接暴力删除第一行
                     if (opts.splitFill && opts.cleanFirstRow) {
                         try {
                             sheet.Rows.Item("1:1").Delete();
@@ -409,20 +410,13 @@
                         }
                     }
 
-                    // ==========================================
-                    // 🌟 7. 墙面表格格式调整 (带智能墙面判定)
-                    // ==========================================
                     if (opts.standardLayout && firstNumRow !== -1) {
                         let headerRow = firstNumRow > 1 ? firstNumRow - 1 : 1;
-                        
-                        // 💡 新增：智能判定当前表是否为“墙面”相关的表格
                         let isWallSheet = false;
                         
-                        // 判定 1：看工作表名称本身是否含有“墙面”
                         if (sheet.Name.indexOf("墙面") !== -1) {
                             isWallSheet = true;
                         } else {
-                            // 判定 2：看表头列（如墙面抹灰）是否含有“墙面”字眼
                             for (let c = 1; c <= lastCol; c++) {
                                 let cellVal = sheet.Cells.Item(headerRow, c).Value2;
                                 if (cellVal && String(cellVal).indexOf("墙面") !== -1) {
@@ -432,7 +426,6 @@
                             }
                         }
 
-                        // 只有被判定为墙面表格，才执行以下的强力格式排版
                         if (isWallSheet) {
                             let nameCol = -1;
 
@@ -485,7 +478,9 @@
                 app.Calculation = oldCalc;
                 app.EnableEvents = true;
                 app.ScreenUpdating = true;
-                alert("✅ 极速清理与排版执行完毕！");
+                
+                // 🌟 核心优化：去除了多余的 alert，成功后直接关闭弹窗！
+                window.close(); 
 
             } catch (err) {
                 app.Calculation = oldCalc;
